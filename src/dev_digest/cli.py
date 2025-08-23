@@ -1,19 +1,16 @@
-from typing import Optional, Sequence, Any
+from collections.abc import Sequence
 from types import SimpleNamespace
+from typing import Any
 
 import typer
-from typer.core import MarkupMode
 
 from . import __version__
 from .command import hello as hello_cmd
 
-app = typer.Typer(
-    add_completion=True,
-    no_args_is_help=True
-)
+app = typer.Typer(add_completion=True, no_args_is_help=True)
 
 
-def _version_callback(ctx: typer.Context, param: Any, value: Optional[bool]) -> None:
+def _version_callback(ctx: typer.Context, param: Any, value: bool | None) -> None:
     if value:
         prog = ctx.info_name or "dev-digest"
         typer.echo(f"{prog} {__version__}")
@@ -22,13 +19,13 @@ def _version_callback(ctx: typer.Context, param: Any, value: Optional[bool]) -> 
 
 @app.callback()
 def _main_callback(
-    version: Optional[bool] = typer.Option(
+    version: bool | None = typer.Option(
         None,
         "--version",
         help="Show the version and exit.",
         is_eager=True,
         callback=_version_callback,
-    )
+    ),
 ) -> None:
     """Developer Digest CLI."""
     return
@@ -42,7 +39,7 @@ def hello(
     return int(hello_cmd.run(SimpleNamespace(name=name, times=times)) or 0)
 
 
-def main(argv: Optional[Sequence[str]] = None):
+def main(argv: Sequence[str] | None = None):
     if argv is None:
         argv = []
     app(argv)

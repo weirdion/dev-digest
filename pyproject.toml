@@ -10,6 +10,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "pytest>=8.4.1",
     "ruff>=0.12.10",
     "uv-build>=0.8.13",
 ]
@@ -25,10 +26,6 @@ build-backend = "uv_build"
 target-version = "py313"
 line-length = 100
 src = ["src"]
-
-[tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B"]
-ignore = ["E203"]
 
 [tool.ruff.format]
 quote-style = "double"
