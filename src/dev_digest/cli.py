@@ -1,11 +1,9 @@
 import logging
-from collections.abc import Sequence
-from types import SimpleNamespace
 
 import click
 
 from . import __version__
-from .command import hello as hello_cmd
+from dev_digest.command import digest as digest_cmd
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("dev-digest")
@@ -15,8 +13,10 @@ log = logging.getLogger("dev-digest")
 def app():
     pass
 
-@app.command("hello", help="Print a friendly greeting.")
-@click.option("-n", "--name", default="world", show_default=True, help="Name to greet.")
-@click.option("-t", "--times", default=1, show_default=True, type=int, help="How many times to print the greeting.")
-def hello(name: str, times: int) -> int:
-    return int(hello_cmd.run(SimpleNamespace(name=name, times=times)) or 0)
+@app.command("run", help="Run dev-digest")
+@click.option("-d", "--days",
+              default=7,
+              show_default=True,
+              help="Name to greet.")
+def hello(days: int) -> int:
+    return int(digest_cmd.run(days=days) or 0)
