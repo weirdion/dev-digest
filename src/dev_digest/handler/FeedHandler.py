@@ -12,6 +12,7 @@ from dev_digest.utility.constants import (
     KEYWORDS_TO_IGNORE,
 )
 from dev_digest.utility.tools import normalize_text, within_window
+from dev_digest.utility.security import sanitize_text
 
 
 class FeedHandler:
@@ -25,7 +26,7 @@ class FeedHandler:
         # published_parsed is a time.struct_time in UTC for most feeds
         return datetime.fromtimestamp(time.mktime(t), tz=timezone.utc)
 
-    def fetch_recent(self, feed_urls: List[str], now_utc: datetime) -> List[Dict[str, Any]]:
+    def fetch_recent(self, feed_urls: List[str], now_utc: datetime, window_days: int) -> List[Dict[str, Any]]:
         """
         Fetch and filter recent posts from a list of feeds within the time window.
         Returns a list of dicts: {title, link, published, source}
@@ -42,12 +43,12 @@ class FeedHandler:
                     break
 
                 published_dt = self._entry_dt(entry)
-                if not within_window(published_dt, now_utc):
+                if not within_window(published_dt, now_utc, window_days):
                     continue
 
-                title = normalize_text(entry.get("title") or "")
-                link = (entry.get("link") or "").strip()
-                summary = normalize_text(entry.get("summary") or entry.get("description") or "")
+                title = sanitize_text(normalize_text(entry.get("title") or ""))
+                link = sanitize_text((entry.get("link") or "").strip())
+                summary = sanitize_text(normalize_text(entry.get("summary") or entry.get("description") or ""))
 
                 # Filter by keywords to ignore
                 tl = title.lower()

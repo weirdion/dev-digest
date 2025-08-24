@@ -2,17 +2,16 @@ import re
 from datetime import timedelta
 from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
 
-from dev_digest.utility.constants import WINDOW_DAYS
 
 
 def normalize_text(s: str) -> str:
     return re.sub(r"\s+", " ", (s or "").strip())
 
 
-def within_window(published_dt, now_utc) -> bool:
+def within_window(published_dt, upper_bound, lower_bound) -> bool:
     if not published_dt:
         return False
-    return (now_utc - published_dt) <= timedelta(days=WINDOW_DAYS)
+    return (upper_bound - published_dt) <= timedelta(days=lower_bound)
 
 
 def canonicalize_url(url: str) -> str:
