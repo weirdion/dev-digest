@@ -1,4 +1,4 @@
-from typer.testing import CliRunner
+from click.testing import CliRunner
 
 from dev_digest import __version__
 from dev_digest.cli import app
@@ -22,5 +22,5 @@ def test_hello_with_options():
 def test_version_flag():
     result = runner.invoke(app, ["--version"])
     assert result.exit_code == 0
-    # The CLI prints "<prog> <version>"
+    # The output should include the version string.
     assert __version__ in result.stdout.strip()
