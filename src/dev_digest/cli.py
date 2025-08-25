@@ -11,9 +11,12 @@ def app():
 
 
 @app.command("run", help="Run dev-digest")
-@click.option("-d", "--days",
+@click.option("-d", "--debug",
+              is_flag=True, default=False,
+              show_default=True, help="Enable debug mode")
+@click.option("--days",
               default=7,
               show_default=True,
               help="Name to greet.")
-def hello(days: int) -> int:
-    return int(digest_cmd.run(days=days) or 0)
+def run(debug: bool, days: int) -> int:
+    return int(digest_cmd.run(debug, days=days) or 0)

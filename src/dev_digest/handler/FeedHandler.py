@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List
@@ -7,13 +8,12 @@ from typing import Any, Dict, List
 import feedparser
 
 from dev_digest.utility.constants import (
-    MAX_PER_FEED,
-    MAX_STORIES_TOTAL,
-    KEYWORDS_TO_IGNORE,
+    KEYWORDS_TO_IGNORE
 )
 from dev_digest.utility.tools import normalize_text, within_window
 from dev_digest.utility.security import sanitize_text
 
+log = logging.getLogger("dev-digest")
 
 class FeedHandler:
     def __init__(self) -> None:
@@ -39,9 +39,6 @@ class FeedHandler:
             parsed = feedparser.parse(url)
             count_for_feed = 0
             for entry in parsed.entries:
-                if total >= MAX_STORIES_TOTAL or count_for_feed >= MAX_PER_FEED:
-                    break
-
                 published_dt = self._entry_dt(entry)
                 if not within_window(published_dt, now_utc, window_days):
                     continue
@@ -66,5 +63,7 @@ class FeedHandler:
                 )
                 count_for_feed += 1
                 total += 1
+
+            log.info(f"Found {count_for_feed} items from {parsed.feed.get('title', url)}")
 
         return results

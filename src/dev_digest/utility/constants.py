@@ -11,4 +11,5 @@ KEYWORDS_TO_IGNORE = [
     "partner network",
     "regional launches",
     "The Real Python Podcast",
+    "more regions",
 ]

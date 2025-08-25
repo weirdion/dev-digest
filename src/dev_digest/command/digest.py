@@ -23,7 +23,7 @@ def _json_default(obj):
     return str(obj)
 
 
-def run(days: int = WINDOW_DAYS) -> int:
+def run(is_debug: bool = False, days: int = WINDOW_DAYS) -> int:
     """
     Build the weekly digest:
     @:param days: number of days to look back for recent items
@@ -33,10 +33,10 @@ def run(days: int = WINDOW_DAYS) -> int:
     run_time = now.strftime("%Y-%m-%d_%H-%M-%S")
     output_dir = Path(OUT_DIR).joinpath(run_time)
     output_dir.mkdir(parents=True, exist_ok=True)
-    outfile = output_dir.joinpath("digest.md")
-    # DEBUG
-    tmp_dir = output_dir.joinpath("tmp")
-    tmp_dir.mkdir(parents=True, exist_ok=True)
+    outfile = output_dir.joinpath(f"dev-digest-{now.strftime('%Y-%m-%d')}.md")
+    if is_debug:
+        tmp_dir = output_dir.joinpath("tmp")
+        tmp_dir.mkdir(parents=True, exist_ok=True)
 
     feed_handler = FeedHandler()
     ai_handler = StrandsAgent()
@@ -45,9 +45,9 @@ def run(days: int = WINDOW_DAYS) -> int:
     validated_feeds = validate_feed_urls(ALL_FEEDS)
     feed_items: List[Dict[str, Any]] = feed_handler.fetch_recent(validated_feeds, now, days)
     log.info(f"Found {len(feed_items)} recent items")
-    # debugging write feeds to file
-    tmp_file = tmp_dir.joinpath("feed.json")
-    tmp_file.write_text(json.dumps(feed_items, default=_json_default, indent=2), encoding="utf-8")
+    if is_debug:
+        tmp_file = tmp_dir.joinpath("feed.json")
+        tmp_file.write_text(json.dumps(feed_items, default=_json_default, indent=2), encoding="utf-8")
 
     # 2) AI search
     # ai_query = (
@@ -56,16 +56,16 @@ def run(days: int = WINDOW_DAYS) -> int:
     # )
     # ai_items: List[Dict[str, Any]] = ai_handler.search_recent(ai_query, window_days=days)
     # log.info(f"Found {len(ai_items)} AI items")
-    # debugging write AI items to file
-    # tmp_file = tmp_dir.joinpath("ai.json")
-    # tmp_file.write_text(json.dumps(ai_items, default=_json_default, indent=2), encoding="utf-8")
+    # if is_debug:
+    #     tmp_file = tmp_dir.joinpath("ai.json")
+    #     tmp_file.write_text(json.dumps(ai_items, default=_json_default, indent=2), encoding="utf-8")
 
     # 3) De-duplicate
     combined = dedupe_items(feed_items)
     log.info(f"Combined {len(combined)} items")
-    # debugging write de-duped items to file
-    tmp_file = tmp_dir.joinpath("combined.json")
-    tmp_file.write_text(json.dumps(combined, default=_json_default, indent=2), encoding="utf-8")
+    if is_debug:
+        tmp_file = tmp_dir.joinpath("combined.json")
+        tmp_file.write_text(json.dumps(combined, default=_json_default, indent=2), encoding="utf-8")
 
     # 4) Generate newsletter
     newsletter_content = ai_handler.summarize_markdown(combined)
