@@ -28,10 +28,6 @@ class StrandsAgent:
                 "DevOps; Python; Kubernetes/Containers; CLI & Dev Tools; Security Alerts; Misc."
                 "You don't have to be serious and to the point in the summaries though, feel free to add sass or humor"
                 "when appropriate, without being too disrespectful though."
-                "The title of the daily digest is 'Dev Digest - Week of {Month, dd}' - day of execution."
-                "For the items, use this format"
-                "title ({news source}) - {publication date yyyy-mm-dd}"
-                "summary, and clean link to read more at the end of summary."
                 "You are not a content creator trying to maximize clicks, but the audience of this newsletter."
             )
         )
@@ -62,6 +58,11 @@ class StrandsAgent:
         ])
 
         prompt = (
+            "The title of the daily digest is 'Dev Digest - Week of {Month, dd}' - day of execution."
+            "For the items, use this format"
+            "title ({news source}) - {publication date yyyy-mm-dd}"
+            "summary, and clean link to read more at the end of summary."
+            "Extract publication data from the feed, and make sure the link, source and feed date are accurate."
             f"Feed Items for this week:\n{items_text}"
         )
 
