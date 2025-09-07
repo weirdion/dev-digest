@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 from dev_digest.handler.FeedHandler import FeedHandler
 from dev_digest.handler.StrandsAgent import StrandsAgent
-from dev_digest.utility.constants import WINDOW_DAYS, OUT_DIR
+from dev_digest.utility.constants import WINDOW_DAYS, OUT_DIR, DEFAULT_MODEL_KEY
 from dev_digest.utility.feeds import ALL_FEEDS
 from dev_digest.utility.security import validate_feed_urls
 from dev_digest.utility.tools import dedupe_items
@@ -23,7 +23,7 @@ def _json_default(obj):
     return str(obj)
 
 
-def run(is_debug: bool = False, days: int = WINDOW_DAYS) -> int:
+def run(is_debug: bool = False, days: int = WINDOW_DAYS, model_key: str = DEFAULT_MODEL_KEY) -> int:
     """
     Build the weekly digest:
     @:param days: number of days to look back for recent items
@@ -39,7 +39,7 @@ def run(is_debug: bool = False, days: int = WINDOW_DAYS) -> int:
         tmp_dir.mkdir(parents=True, exist_ok=True)
 
     feed_handler = FeedHandler()
-    ai_handler = StrandsAgent()
+    ai_handler = StrandsAgent(model_key=model_key)
 
     # 1) Fetch feeds (with security validation)
     validated_feeds = validate_feed_urls(ALL_FEEDS)
@@ -70,6 +70,22 @@ def run(is_debug: bool = False, days: int = WINDOW_DAYS) -> int:
     # 4) Generate newsletter
     newsletter_content = ai_handler.summarize_markdown(combined)
     outfile.write_text(newsletter_content, encoding="utf-8")
+
+    # Log and persist token/cost metrics if available
+    usage = getattr(ai_handler, "last_usage", None)
+    if usage:
+        log.info(
+            "LLM usage model=%s in=%s out=%s total=%s est_cost_usd=%.6f",
+            usage.get("model", ""),
+            usage.get("input_tokens", 0),
+            usage.get("output_tokens", 0),
+            usage.get("total_tokens", 0),
+            usage.get("estimated_cost_usd", 0.0),
+        )
+        if is_debug:
+            tmp_file = tmp_dir.joinpath("metrics.json")
+            from dev_digest.utility.metrics import to_json
+            tmp_file.write_text(to_json(usage), encoding="utf-8")
 
     print(f"Newsletter generated: {outfile}")
     return 0

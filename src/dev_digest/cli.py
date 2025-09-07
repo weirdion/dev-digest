@@ -2,6 +2,7 @@ import click
 
 from dev_digest.command import digest as digest_cmd
 from . import __version__
+from dev_digest.utility.constants import MODEL_PROFILES, DEFAULT_MODEL_KEY
 
 
 @click.group(name="dev-digest")
@@ -18,5 +19,12 @@ def app():
               default=7,
               show_default=True,
               help="Number of days to look back for items.")
-def run(debug: bool, days: int) -> int:
-    return int(digest_cmd.run(debug, days=days) or 0)
+@click.option(
+    "--model-key",
+    type=click.Choice(sorted(list(MODEL_PROFILES.keys()))),
+    default=DEFAULT_MODEL_KEY,
+    show_default=True,
+    help="Model profile to use for summarization and cost."
+)
+def run(debug: bool, days: int, model_key: str) -> int:
+    return int(digest_cmd.run(debug, days=days, model_key=model_key) or 0)

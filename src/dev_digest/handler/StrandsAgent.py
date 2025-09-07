@@ -7,7 +7,15 @@ from collections import defaultdict
 
 from strands import Agent
 from strands.agent import AgentResult
-from dev_digest.utility.constants import PER_SECTION_CAP, TOP_PICKS_COUNT, MAX_STORIES_TOTAL
+from dev_digest.utility.constants import (
+    PER_SECTION_CAP,
+    TOP_PICKS_COUNT,
+    MAX_STORIES_TOTAL,
+    MODEL_PROFILES,
+    DEFAULT_MODEL_KEY,
+)
+from dev_digest.utility.metrics import usage_summary
+from dev_digest.utility.metrics import usage_summary
 
 
 SECTION_ORDER = [
@@ -99,10 +107,14 @@ def _render_markdown(sections: Dict[str, List[Dict[str, Any]]]) -> str:
 
 
 class StrandsAgent:
-    def __init__(self) -> None:
+    def __init__(self, model_key: str = DEFAULT_MODEL_KEY) -> None:
         # Keep the agent focused on concise summaries only. Markdown is rendered deterministically in code.
+        profile = MODEL_PROFILES.get(model_key) or MODEL_PROFILES[DEFAULT_MODEL_KEY]
+        self.model_key = model_key if model_key in MODEL_PROFILES else DEFAULT_MODEL_KEY
+        self.model_id = str(profile.get("model_id") or MODEL_PROFILES[DEFAULT_MODEL_KEY]["model_id"])  # type: ignore[index]
+
         self.summary_agent = Agent(
-            model="us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+            model=self.model_id,
             callback_handler=None,
             name="SummaryAgent",
             system_prompt=(
@@ -113,6 +125,8 @@ class StrandsAgent:
                 "Respond ONLY as JSON array with objects: {index, short_summary, impact_score}. No markdown or code fences."
             ),
         )
+        self.last_usage: Dict[str, Any] | None = None
+        self.last_usage: Dict[str, Any] | None = None
 
     def summarize_markdown(self, items: List[Dict[str, Any]]) -> str:
         """
@@ -153,6 +167,17 @@ class StrandsAgent:
 
         prompt = "\n".join(prompt_lines)
         result: AgentResult = self.summary_agent(prompt)
+        # Capture usage for cost estimation/logging
+        try:
+            self.last_usage = usage_summary(result, model_key=self.model_key, model_id=self.model_id)
+        except Exception:
+            self.last_usage = None
+        # Capture usage for cost estimation/logging by caller
+        try:
+            model_name = getattr(self.summary_agent, "model", "")
+            self.last_usage = usage_summary(result, model_name=model_name)
+        except Exception:
+            self.last_usage = None
         text = ""
         try:
             text = result.message.get("content", [{}])[0].get("text", "")  # type: ignore[index]

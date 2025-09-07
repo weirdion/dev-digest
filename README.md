@@ -16,8 +16,11 @@ AI-powered newsletter generator that fetches RSS/Atom feeds, discovers additiona
 # Install dependencies
 uv sync --group dev
 
-# Generate newsletter for last 7 days
+# Generate newsletter for last 7 days (default model: sonnet-3.7)
 uv run dev-digest run --days 7
+
+# Use Sonnet 4 profile
+uv run dev-digest run --days 7 --model-key sonnet-4
 
 # Output will be in out/YYYY-MM-DD_HH-MM-SS/digest.md
 ```
@@ -44,6 +47,10 @@ uv run ruff format .
 # Build package
 uv build
 ```
+
+## Cost Estimation
+
+Cost is estimated automatically from built‑in pricing profiles in `MODEL_PROFILES` (see `src/dev_digest/utility/constants.py`). Choose the profile via `--model-key`. When you run with `--debug`, the tool writes `metrics.json` with token counts and estimated cost to the run’s `tmp/` folder and also logs a summary line.
 
 ## Architecture
 
