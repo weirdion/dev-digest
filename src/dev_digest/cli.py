@@ -1,8 +1,9 @@
 import click
 
 from dev_digest.command import digest as digest_cmd
-from . import __version__
 from dev_digest.utility.constants import MODEL_PROFILES, DEFAULT_MODEL_KEY
+
+from . import __version__
 
 
 @click.group(name="dev-digest")
@@ -26,5 +27,25 @@ def app():
     show_default=True,
     help="Model profile to use for summarization and cost."
 )
-def run(debug: bool, days: int, model_key: str) -> int:
-    return int(digest_cmd.run(debug, days=days, model_key=model_key) or 0)
+@click.option(
+    "--ai/--no-ai",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="Use deterministic pipeline (or AI)"
+)
+@click.option(
+    "-wf",
+    "--with-footer",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="Include footer"
+)
+def run(debug: bool, days: int, model_key: str, ai: bool, with_footer: bool) -> int:
+    return int(
+        digest_cmd.run(
+            debug, days=days, model_key=model_key,
+            ai_generated=ai, include_footer=with_footer
+            )
+        or 0)

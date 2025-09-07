@@ -8,6 +8,9 @@ TOP_PICKS_COUNT = 2  # how many 'Interesting Reads' to feature at the top
 
 OUT_DIR = "out"
 
+# markdown footer
+MARDOWN_FOOTER = "\n\n This dev digest newsletter is generated with [weirdion/dev-digest](https://github.com/weirdion/dev-digest)\n"
+
 KEYWORDS_TO_IGNORE = [
     "end-of-support",
     "training-and-certification",
