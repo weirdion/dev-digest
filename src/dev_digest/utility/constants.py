@@ -48,3 +48,39 @@ MODEL_PROFILES = {
 }
 
 DEFAULT_MODEL_KEY = "sonnet-3.7"
+
+# Heuristic filters/keywords
+CLICKBAIT_TERMS = [
+    "unlocking", "next-generation", "revolutionize", "revolutionizing", "ultimate",
+    "game-changing", "seamless", "empower", "supercharge", "unleash", "transformative",
+]
+
+AWS_WHATS_NEW_LOW_SIGNAL = [
+    "now supports", "now available", "is available", "adds support", "adds quota",
+    "quota visibility", "service quotas", "limits", "available in", "region", "regions",
+]
+
+# Common AWS region/location indicators to down-rank regional announcements
+AWS_REGION_TERMS = [
+    "us-east-1", "us-west-1", "us-west-2", "eu-west-1", "eu-west-2", "eu-central-1",
+    "ap-south-1", "ap-northeast-1", "ap-northeast-2", "ap-southeast-1", "ap-southeast-2",
+    "sa-east-1", "me-south-1", "me-central-1", "af-south-1",
+    "Tokyo", "Seoul", "Singapore", "Sydney", "Frankfurt", "London", "Paris", "Ireland",
+    "Mumbai", "Sao Paulo", "Bahrain", "Hyderabad", "Melbourne", "Ohio", "N. Virginia",
+]
+
+# Developer-preference signals
+PERFORMANCE_TERMS = [
+    "performance", "latency", "throughput", "scalability", "benchmark",
+    "allocator", "allocation", "memory leak", "memory usage", "garbage collector",
+    "gc", "profiling", "pprof", "flamegraph", "perf", "optimiz",
+]
+
+LANGUAGE_FEATURE_TERMS = [
+    "rust", "memory safety", "borrow checker", "wasm", "zig",
+    "python", "pep ", "type hint", "typing", "no gil", "cpython",
+]
+
+IAC_HIGH_SIGNAL_TERMS = [
+    "terraform", "pulumi", "cdk", "aws cdk", "infrastructure as code",
+]

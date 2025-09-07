@@ -2,7 +2,7 @@ import json
 import math
 import re
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Tuple, DefaultDict
+from typing import Any, Dict, List, Tuple, DefaultDict, Set
 from collections import defaultdict
 
 from strands import Agent
@@ -13,9 +13,16 @@ from dev_digest.utility.constants import (
     MAX_STORIES_TOTAL,
     MODEL_PROFILES,
     DEFAULT_MODEL_KEY,
+    CLICKBAIT_TERMS,
+    AWS_WHATS_NEW_LOW_SIGNAL,
+    AWS_REGION_TERMS,
+    PERFORMANCE_TERMS,
+    LANGUAGE_FEATURE_TERMS,
+    IAC_HIGH_SIGNAL_TERMS,
 )
 from dev_digest.utility.metrics import usage_summary
-from dev_digest.utility.metrics import usage_summary
+from dev_digest.utility.tools import canonicalize_url
+from dev_digest.utility.security import strip_html_to_text
 
 
 SECTION_ORDER = [
@@ -34,7 +41,12 @@ SECTION_ORDER = [
 def _infer_category(title: str, source: str) -> str:
     t = (title or "").lower()
     s = (source or "").lower()
-    if "security" in s or "security" in t or "cve" in t:
+    if (
+        "security" in s
+        or "security" in t
+        or "cve" in t
+        or any(k in t for k in ["honeypot", "malware", "ransomware", "exploit", "vulnerability", "attack", "zero-day", "0-day"])  # noqa: E501
+    ):
         return "Security Alerts"
     if "aws" in s or "aws" in t or "cloud" in t:
         return "AWS & Cloud"
@@ -51,6 +63,13 @@ def _infer_category(title: str, source: str) -> str:
     if any(k in t for k in ["ai", "ml", "machine learning", "llm"]):
         return "ML & AI"
     return "Misc"
+
+
+def _clip_words(text: str, max_words: int) -> str:
+    parts = (text or "").split()
+    if len(parts) <= max_words:
+        return " ".join(parts)
+    return " ".join(parts[:max_words])
 
 
 def _render_markdown(sections: Dict[str, List[Dict[str, Any]]]) -> str:
@@ -72,8 +91,8 @@ def _render_markdown(sections: Dict[str, List[Dict[str, Any]]]) -> str:
                 date_str = published.date().isoformat()
             else:
                 date_str = ""
-            summary = (it.get("short_summary") or it.get("summary") or "").strip()
-            head = f"{title} ({source})" if source else title
+            summary = _clip_words(strip_html_to_text((it.get("short_summary") or it.get("summary") or "").strip()), 30)
+            head = f"**{title} ({source})**" if source else f"**{title}**"
             date_part = f" — {date_str}" if date_str else ""
             read_more = f" Read: {link}" if link else ""
             lines.append(f"- ⭐ {head}{date_part}: {summary}.{read_more}")
@@ -93,11 +112,8 @@ def _render_markdown(sections: Dict[str, List[Dict[str, Any]]]) -> str:
                 date_str = published.date().isoformat()
             else:
                 date_str = ""
-            summary = (it.get("short_summary") or it.get("summary") or "").strip()
-            if source:
-                head = f"{title} ({source})"
-            else:
-                head = title
+            summary = _clip_words(strip_html_to_text((it.get("short_summary") or it.get("summary") or "").strip()), 30)
+            head = f"**{title} ({source})**" if source else f"**{title}**"
             date_part = f" — {date_str}" if date_str else ""
             read_more = f" Read: {link}" if link else ""
             lines.append(f"- {head}{date_part}: {summary}.{read_more}")
@@ -172,12 +188,6 @@ class StrandsAgent:
             self.last_usage = usage_summary(result, model_key=self.model_key, model_id=self.model_id)
         except Exception:
             self.last_usage = None
-        # Capture usage for cost estimation/logging by caller
-        try:
-            model_name = getattr(self.summary_agent, "model", "")
-            self.last_usage = usage_summary(result, model_name=model_name)
-        except Exception:
-            self.last_usage = None
         text = ""
         try:
             text = result.message.get("content", [{}])[0].get("text", "")  # type: ignore[index]
@@ -229,15 +239,43 @@ class StrandsAgent:
                 score += 26
             if any(k in t for k in ["deprecate", "breaking change", "removed", "end of support"]):
                 score += 24
-            if any(k in t for k in ["performance", "throughput", "latency", "scalability", "benchmark"]):
+            if any(k in t for k in PERFORMANCE_TERMS):
                 score += 18
             if any(k in s for k in ["aws", "cloudflare", "github", "google", "microsoft"]):
                 score += 6
             if any(k in t for k in ["open source", "oss", "released", "announce"]):
                 score += 10
+            # Preference signals from feedback
+            if any(k in t for k in LANGUAGE_FEATURE_TERMS):
+                score += 16
+            if any(k in t for k in ["branch", "branching"]):
+                score += 8
+            if any(k in t for k in ["sdk", "cli"]):
+                score += 6
+            if "part 2" in t:
+                score += 6
+            if any(k in t for k in ["government", "education", "schools", "policy", "partnership"]):
+                score += 8
+            # IaC (Terraform/CDK/Pulumi) release notes are important for developers
+            if any(k in t for k in IAC_HIGH_SIGNAL_TERMS) and (
+                re.search(r"\bv\d+\.\d+\b", t) or "release" in t or "changelog" in t or "what's new" in t
+            ):
+                score += 16
             # Negative signals
             if any(k in t for k in ["webinar", "podcast", "training", "certification", "partner", "regional"]):
                 score -= 30
+            if any(k in t for k in CLICKBAIT_TERMS):
+                score -= 14
+            # De-prioritize lightweight What's New unless strong positives
+            if s == "recent announcements" and not any(x in t for x in ["ga", "generally available", "security", "cve", "deprecat", "breaking"]):
+                score -= 18
+            if any(k in t for k in AWS_WHATS_NEW_LOW_SIGNAL):
+                score -= 18
+            if any(term.lower() in t for term in AWS_REGION_TERMS):
+                score -= 16
+            # Downweight policy-only TLS updates that are not broadly actionable this week
+            if any(k in t for k in ["tls policy", "post-quantum"]) and s == "recent announcements":
+                score -= 10
             # Clamp
             return max(0.0, min(100.0, score))
 
@@ -269,11 +307,51 @@ class StrandsAgent:
             enriched["category"] = cat
             sections[cat].append(enriched)
 
-        # Sort by score then date, and enforce per-section cap
+        # Sort by score then date, merge near-duplicate stories per section, then enforce per-section cap
+        def _topic_tokens(title: str) -> set[str]:
+            t = re.sub(r"[^a-z0-9\s]", " ", (title or "").lower())
+            words = [w for w in t.split() if len(w) > 2 and w not in {"the","and","for","with","into","your","our","are","was","were","this","that","from","you","now","new","aws","blog"}]
+            return set(words)
+
+        def _merge_near_duplicates(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+            merged: List[Dict[str, Any]] = []
+            taken = [False]*len(items)
+            for i, it in enumerate(items):
+                if taken[i]:
+                    continue
+                toks_i = _topic_tokens(it.get("title", ""))
+                best = it
+                for j in range(i+1, len(items)):
+                    if taken[j]:
+                        continue
+                    tj = _topic_tokens(items[j].get("title", ""))
+                    if not toks_i or not tj:
+                        continue
+                    inter = len(toks_i & tj)
+                    union = len(toks_i | tj)
+                    sim = inter/union if union else 0.0
+                    same_host = True
+                    try:
+                        h1 = canonicalize_url(it.get("link") or it.get("url") or "").split("//",1)[-1].split("/",1)[0]
+                        h2 = canonicalize_url(items[j].get("link") or items[j].get("url") or "").split("//",1)[-1].split("/",1)[0]
+                        same_host = (h1 == h2)
+                    except Exception:
+                        pass
+                    if sim >= 0.6 and same_host:
+                        # Keep newer by published timestamp
+                        if _ts(items[j].get("published")) >= _ts(best.get("published")):
+                            best = items[j]
+                        taken[j] = True
+                merged.append(best)
+                taken[i] = True
+            return merged
+
         for cat, arr in sections.items():
             arr.sort(key=lambda x: (float(x.get("score", 0.0)), _ts(x.get("published"))), reverse=True)
+            arr = _merge_near_duplicates(arr)
             if PER_SECTION_CAP and len(arr) > PER_SECTION_CAP:
-                sections[cat] = arr[:PER_SECTION_CAP]
+                arr = arr[:PER_SECTION_CAP]
+            sections[cat] = arr
 
         # Enforce global cap by trimming lowest-score, oldest items across sections
         if MAX_STORIES_TOTAL:
@@ -297,10 +375,51 @@ class StrandsAgent:
                 for cat, idxs in removed_by_cat.items():
                     sections[cat] = [it for j, it in enumerate(sections[cat]) if j not in idxs]
 
-        # Compute top picks
+        # Compute top picks with host diversity, exclude low-signal & release posts, and remove duplicates from sections
         flat_items: List[Dict[str, Any]] = [it for arr in sections.values() for it in arr]
-        flat_items.sort(key=lambda x: (float(x.get("score", 0.0)), _ts(x.get("published"))), reverse=True)
-        if TOP_PICKS_COUNT and flat_items:
-            sections["TOP_PICKS"] = flat_items[: TOP_PICKS_COUNT]
+        def _is_release_like(title_l: str, source_l: str) -> bool:
+            if "kubernetes v" in title_l:
+                return True
+            if re.search(r"\bv\d+\.\d+\b", title_l):
+                return True
+            if any(k in title_l for k in ["release notes", "released", "introducing", "graduates to beta", "graduates to stable", "now available"]):
+                return True
+            return False
+        def _is_high_signal_release(title_l: str) -> bool:
+            # Allow IaC release notes (Terraform/CDK/Pulumi) as high-signal exceptions
+            return any(k in title_l for k in IAC_HIGH_SIGNAL_TERMS)
+        def _rust_pref(title_l: str) -> int:
+            return 1 if ("rust" in title_l or "memory safety" in title_l) else 0
+        flat_items.sort(key=lambda x: (float(x.get("score", 0.0)), _rust_pref((x.get("title") or "").lower()), _ts(x.get("published"))), reverse=True)
+        featured: List[Dict[str, Any]] = []
+        seen_hosts: Set[str] = set()
+        for it in flat_items:
+            link = it.get("link") or it.get("url") or ""
+            try:
+                host = canonicalize_url(link).split("//", 1)[-1].split("/", 1)[0]
+            except Exception:
+                host = ""
+            if host in seen_hosts:
+                continue
+            src = (it.get("source") or "").strip().lower()
+            title_l = (it.get("title") or "").lower()
+            # Top picks limited to blogs/articles; exclude AWS What's New entirely
+            if src == "recent announcements":
+                continue
+            # Exclude release/version announcements from top picks as well
+            if _is_release_like(title_l, src) and not _is_high_signal_release(title_l):
+                continue
+            featured.append(it)
+            seen_hosts.add(host)
+            if len(featured) >= max(1, TOP_PICKS_COUNT):
+                break
+        if featured:
+            sections["TOP_PICKS"] = featured
+            # Exclude featured items from their sections to avoid duplicates
+            feat_keys = {canonicalize_url((it.get("link") or it.get("url") or "")) for it in featured}
+            for cat, arr in list(sections.items()):
+                if cat == "TOP_PICKS":
+                    continue
+                sections[cat] = [it for it in arr if canonicalize_url((it.get("link") or it.get("url") or "")) not in feat_keys]
 
         return _render_markdown(sections)
