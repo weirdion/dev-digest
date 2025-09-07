@@ -1,6 +1,7 @@
 # dev-digest
 
-AI-powered newsletter generator that fetches RSS/Atom feeds, discovers additional content via agentic search, deduplicates articles, and outputs a curated weekly digest in Markdown.
+Newsletter generator (optionally AI-powered) that fetches RSS/Atom feeds, discovers additional content via agentic search,
+deduplicates articles, and outputs a curated weekly digest in Markdown.
 
 ## Features
 
@@ -16,13 +17,38 @@ AI-powered newsletter generator that fetches RSS/Atom feeds, discovers additiona
 # Install dependencies
 uv sync --group dev
 
-# Generate newsletter for last 7 days (default model: sonnet-3.7)
+# Generate newsletter for last 7 days (AI summarization; default model: sonnet-3.7)
 uv run dev-digest run --days 7
 
 # Use Sonnet 4 profile
 uv run dev-digest run --days 7 --model-key sonnet-4
 
-# Output will be in out/YYYY-MM-DD_HH-MM-SS/digest.md
+# Deterministic (no AI) pipeline
+uv run dev-digest run --days 7 --no-ai
+
+# Append a footer line
+uv run dev-digest run --days 7 --no-ai --debug --with-footer
+
+# Output will be in out/YYYY-MM-DD_HH-MM-SS/
+
+# Help menu
+uv run dev-digest run --help
+
+Usage: dev-digest run [OPTIONS]
+
+  Run dev-digest
+
+Options:
+  -d, --debug                     Enable debug mode
+  --days INTEGER                  Number of days to look back for items.
+                                  [default: 7]
+  --model-key [sonnet-3.7|sonnet-4]
+                                  Model profile to use for summarization and
+                                  cost.  [default: sonnet-3.7]
+  --ai / --no-ai                  Use deterministic pipeline (or AI)
+                                  [default: no-ai]
+  -wf, --with-footer              Include footer
+  --help                          Show this message and exit.
 ```
 
 ## Configuration
@@ -48,9 +74,13 @@ uv run ruff format .
 uv build
 ```
 
-## Cost Estimation
+## Cost Estimation and Diagnostics
 
-Cost is estimated automatically from built‑in pricing profiles in `MODEL_PROFILES` (see `src/dev_digest/utility/constants.py`). Choose the profile via `--model-key`. When you run with `--debug`, the tool writes `metrics.json` with token counts and estimated cost to the run’s `tmp/` folder and also logs a summary line.
+Cost is estimated automatically from built‑in pricing profiles in `MODEL_PROFILES` (see `src/dev_digest/utility/constants.py`). Choose the profile via `--model-key`.
+
+When you run with `--debug`:
+- AI path: writes `tmp/metrics.json` with token counts and estimated cost, and logs a summary line.
+- Deterministic path: writes ranking diagnostics (`debug_ranking.json`, `debug_ranking.csv`, `debug_ranking.md`) in the run folder.
 
 ## Architecture
 
