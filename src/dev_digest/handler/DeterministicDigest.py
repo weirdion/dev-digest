@@ -12,6 +12,8 @@ from dev_digest.utility.constants import (
     PERFORMANCE_TERMS,
     LANGUAGE_FEATURE_TERMS,
     IAC_HIGH_SIGNAL_TERMS,
+    AWS_WHATS_NEW_LOW_SIGNAL,
+    AWS_REGION_TERMS,
 )
 
 
@@ -153,6 +155,19 @@ class DeterministicDigest:
             )
 
             title_key = title.casefold()
+            # Drop low-signal Recent Announcements (regions/quotas/etc.)
+            tl = title.lower()
+            if source.lower() == "recent announcements" and (
+                any(k in tl for k in AWS_WHATS_NEW_LOW_SIGNAL) or any(term.lower() in tl for term in AWS_REGION_TERMS)
+            ):
+                diagnostics.append({
+                    "title": title, "source": source, "published": published, "link": url,
+                    "canonical_url": canon, "category_suggested": None,
+                    "heuristic_score": 0, "model_score": 0, "combined_score": 0,
+                    "included": False, "reason": "low_signal", "section": None,
+                    "position_in_section": None, "featured_top_pick": False,
+                })
+                continue
             if not title and not canon:
                 diagnostics.append({"title": title, "source": source, "published": published, "link": url,
                                    "canonical_url": canon, "category_suggested": None,
@@ -238,6 +253,23 @@ class DeterministicDigest:
                 merged = merged[: self.per_section_cap]
             sections[cat] = merged
 
+        # Optional micro-cap for Recent Announcements within AWS & Cloud to avoid drowning out blogs
+        aws_arr = sections.get("AWS & Cloud", [])
+        if aws_arr:
+            non_ra = [it for it in aws_arr if (it.get("source") or "").strip().lower() != "recent announcements"]
+            ra_items = [it for it in aws_arr if (it.get("source") or "").strip().lower() == "recent announcements"]
+            max_ra = 2
+            capped = non_ra + ra_items[:max_ra]
+            # Record diagnostics for removed RA items
+            for it in ra_items[max_ra:]:
+                diagnostics.append({
+                    "title": it["title"], "source": it["source"], "published": it["published"], "link": it["link"],
+                    "canonical_url": it["canon"], "category_suggested": "AWS & Cloud", "heuristic_score": it["heuristic_score"],
+                    "model_score": it["model_score"], "combined_score": it["combined_score"], "included": False,
+                    "reason": "ra_microcap", "section": None, "position_in_section": None, "featured_top_pick": False,
+                })
+            sections["AWS & Cloud"] = capped[: self.per_section_cap]
+
         # Global cap
         all_items = [it for cat in SECTION_ORDER for it in sections.get(cat, [])]
         if len(all_items) > self.max_total:
@@ -267,7 +299,11 @@ class DeterministicDigest:
 
         flat_sorted = sorted([it for cat in SECTION_ORDER for it in sections.get(cat, [])],
                              key=lambda x: (x["combined_score"],
-                                            ("rust" in x.get("title", "").lower() or "memory safety" in x.get("title", "").lower()),
+                                            (
+                                                ("rust" in x.get("title", "").lower() or "memory safety" in x.get("title", "").lower())
+                                                or any(term in x.get("title", "").lower() for term in PERFORMANCE_TERMS)
+                                                or any(term in x.get("title", "").lower() for term in IAC_HIGH_SIGNAL_TERMS)
+                                            ),
                                             self._ts(x["published"])), reverse=True)
         featured: List[Dict[str, Any]] = []
         seen_hosts: set[str] = set()
@@ -277,6 +313,9 @@ class DeterministicDigest:
                 continue
             tl = (it.get("title") or "").lower()
             if is_release_like(tl) and not any(k in tl for k in IAC_HIGH_SIGNAL_TERMS):
+                continue
+            # Exclude low-depth primers/tutorials from top picks
+            if any(k in tl for k in ["primer", "beginner", "how to", "tutorial", "introduction", "introduct"]):
                 continue
             host = canonicalize_url(it.get("link") or "").split("//", 1)[-1].split("/", 1)[0]
             if host in seen_hosts:
