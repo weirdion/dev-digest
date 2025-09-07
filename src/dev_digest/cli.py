@@ -17,6 +17,6 @@ def app():
 @click.option("--days",
               default=7,
               show_default=True,
-              help="Name to greet.")
+              help="Number of days to look back for items.")
 def run(debug: bool, days: int) -> int:
     return int(digest_cmd.run(debug, days=days) or 0)
