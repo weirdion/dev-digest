@@ -26,7 +26,7 @@ from dev_digest.utility.security import strip_html_to_text
 
 
 SECTION_ORDER = [
-    "Security Alerts",
+    "Security & Alerts",
     "AWS & Cloud",
     "ML & AI",
     "Infrastructure as Code",
@@ -47,7 +47,7 @@ def _infer_category(title: str, source: str) -> str:
         or "cve" in t
         or any(k in t for k in ["honeypot", "malware", "ransomware", "exploit", "vulnerability", "attack", "zero-day", "0-day"])  # noqa: E501
     ):
-        return "Security Alerts"
+        return "Security & Alerts"
     if "aws" in s or "aws" in t or "cloud" in t:
         return "AWS & Cloud"
     if any(k in t for k in ["terraform", "pulumi", "cdk", "infrastructure as code"]):

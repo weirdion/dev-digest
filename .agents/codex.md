@@ -34,8 +34,8 @@ Steps:
 4. Summarize and categorize
   - For each item, produce short_summary: one sentence, ≤30 words, plain text (no HTML), neutral voice.
   - Categorize into one of:
-    - Security Alerts; AWS & Cloud; ML & AI; Infrastructure as Code; DevOps; Python; Kubernetes/Containers; CLI & Dev Tools; Misc.
-  - Category hints: “CVE/security/honeypot/malware/ransomware/exploit/vulnerability/attack/zero‑day/0‑day” → Security Alerts; “terraform/pulumi/cdk/IaC” → IaC; “kubernetes/k8s/helm/istio/cncf/container” → Kubernetes/Containers; “python” → Python; “devops/ci/cd/sre” → DevOps; “cli/tool/github/git/terminal” → CLI & Dev Tools; “ai/ml/llm” → ML & AI; “aws/cloud” → AWS & Cloud; else Misc.
+    - Security & Alerts; AWS & Cloud; ML & AI; Infrastructure as Code; DevOps; Python; Kubernetes/Containers; CLI & Dev Tools; Misc.
+  - Category hints: “CVE/security/honeypot/malware/ransomware/exploit/vulnerability/attack/zero‑day/0‑day” → Security & Alerts; “terraform/pulumi/cdk/IaC” → IaC; “kubernetes/k8s/helm/istio/cncf/container” → Kubernetes/Containers; “python” → Python; “devops/ci/cd/sre” → DevOps; “cli/tool/github/git/terminal” → CLI & Dev Tools; “ai/ml/llm” → ML & AI; “aws/cloud” → AWS & Cloud; else Misc.
 
 5. Selection and ordering
   - Within each category: sort by score desc, then published date desc (if available).
@@ -52,7 +52,7 @@ Steps:
   - Title: “Dev Digest — Week of YYYY‑MM‑DD” (use the latest folder’s date or today). Use Markdown H1 for the title (`# ...`).
   - Section order:
     - Interesting Reads (if any)
-    - Security Alerts; AWS & Cloud; ML & AI; Infrastructure as Code; DevOps; Python; Kubernetes/Containers; CLI & Dev Tools; Misc
+    - Security & Alerts; AWS & Cloud; ML & AI; Infrastructure as Code; DevOps; Python; Kubernetes/Containers; CLI & Dev Tools; Misc
   - Use Markdown H2 for section names (`## ...`).
   - Item format (bold title, plain text summary, fixed layout, no HTML):
     - “- ⭐ optional for top picks”

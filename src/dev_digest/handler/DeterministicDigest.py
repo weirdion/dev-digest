@@ -103,7 +103,7 @@ class DeterministicDigest:
         if ("security" in s) or ("security" in t) or ("cve" in t) or any(
             k in t for k in ["honeypot", "malware", "ransomware", "exploit", "vulnerability", "attack", "zero-day", "0-day"]
         ):
-            return "Security Alerts"
+            return "Security & Alerts"
         if "aws" in s or "aws" in t or "cloud" in t:
             return "AWS & Cloud"
         if any(k in t for k in ["terraform", "pulumi", "cdk", "infrastructure as code"]):
