@@ -95,7 +95,7 @@ def _render_markdown(sections: Dict[str, List[Dict[str, Any]]]) -> str:
             head = f"**{title} ({source})**" if source else f"**{title}**"
             date_part = f" — {date_str}" if date_str else ""
             read_more = f" Read: {link}" if link else ""
-            lines.append(f"- ⭐ {head}{date_part}: {summary}.{read_more}")
+            lines.append(f"- {head}{date_part}: {summary}.{read_more}")
         lines.append("")
 
     for section in SECTION_ORDER:
@@ -135,9 +135,9 @@ class StrandsAgent:
             name="SummaryAgent",
             system_prompt=(
                 "You are a senior cloud engineer summarizing and scoring a weekly list of posts. "
-                "For EACH item, return: a single concise one-sentence summary (max 30 words) and an impact score 0-100. "
-                "Scoring guidance: prioritize impactful launches (GA/stable), critical security issues (CVE, 0-day), deep technical write-ups, postmortems, novel performance/architecture insights, major OSS releases. "
-                "De-prioritize routine region expansions, partner news, webinars/podcasts, basic tutorials, training/certs. "
+                "For EACH item, return: a single concise one-sentence summary (max 50 words). "
+                "Scoring guidance: prioritize deep technical write-ups, postmortems, novel performance/architecture insights, major OSS releases, critical security issues (CVE, 0-day), impactful launches (GA/stable). "
+                "De-prioritize routine region expansions, partner news, webinars/podcasts, training/certs. "
                 "Respond ONLY as JSON array with objects: {index, short_summary, impact_score}. No markdown or code fences."
             ),
         )
@@ -230,17 +230,17 @@ class StrandsAgent:
             score = 0.0
             # Positive signals
             if any(k in t for k in ["generally available", "ga ", "ga:", "stable release", "v1.0"]):
-                score += 28
+                score += 8
             if any(k in t for k in ["preview", "public preview", "beta"]):
-                score += 16
+                score += 8
             if any(k in t for k in ["postmortem", "incident", "outage", "root cause"]):
-                score += 32
+                score += 12
             if "cve-" in t or "cve-" in suml or "0-day" in t:
-                score += 26
+                score += 10
             if any(k in t for k in ["deprecate", "breaking change", "removed", "end of support"]):
-                score += 24
+                score += 14
             if any(k in t for k in PERFORMANCE_TERMS):
-                score += 18
+                score += 12
             if any(k in s for k in ["aws", "cloudflare", "github", "google", "microsoft"]):
                 score += 6
             if any(k in t for k in ["open source", "oss", "released", "announce"]):
@@ -260,7 +260,7 @@ class StrandsAgent:
             if any(k in t for k in IAC_HIGH_SIGNAL_TERMS) and (
                 re.search(r"\bv\d+\.\d+\b", t) or "release" in t or "changelog" in t or "what's new" in t
             ):
-                score += 16
+                score += 8
             # Negative signals
             if any(k in t for k in ["webinar", "podcast", "training", "certification", "partner", "regional"]):
                 score -= 30
