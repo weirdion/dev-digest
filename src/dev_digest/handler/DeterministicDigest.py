@@ -135,7 +135,8 @@ class DeterministicDigest:
 
     # ---------- pipeline ----------
     def generate(self, items: List[Dict[str, Any]], run_dir: Path) -> Tuple[str, List[Dict[str, Any]]]:
-        run_date = run_dir.name.split("_", 1)[0] if "_" in run_dir.name else datetime.now(timezone.utc).date().isoformat()
+        m = re.match(r"^(\d{4}-\d{2}-\d{2})", run_dir.name)
+        run_date = m.group(1) if m else datetime.now(timezone.utc).date().isoformat()
 
         # Normalize and de-dupe
         norm_items: List[Dict[str, Any]] = []
@@ -402,7 +403,8 @@ class DeterministicDigest:
     # ---------- IO helpers ----------
     def write_outputs(self, run_dir: Path, markdown: str, diagnostics: List[Dict[str, Any]], debug: bool = False) -> Path:
         # Digest
-        run_date = run_dir.name.split("_", 1)[0] if "_" in run_dir.name else datetime.now(timezone.utc).date().isoformat()
+        m = re.match(r"^(\d{4}-\d{2}-\d{2})", run_dir.name)
+        run_date = m.group(1) if m else datetime.now(timezone.utc).date().isoformat()
         digest_file = run_dir / f"dev_digest_newsletter_{run_date.replace('-', '_')}.md"
         digest_file.write_text(markdown, encoding="utf-8")
 

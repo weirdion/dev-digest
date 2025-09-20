@@ -1,6 +1,7 @@
 import json
 import logging
 from datetime import datetime, timezone
+import shutil
 from pathlib import Path
 from typing import List, Dict, Any
 
@@ -29,7 +30,8 @@ def run(
     days: int = WINDOW_DAYS,
     model_key: str = DEFAULT_MODEL_KEY,
     ai_generated: bool = False,
-    include_footer: bool = False
+    include_footer: bool = False,
+    overwrite: bool = False,
 ) -> int:
     """
     Build the weekly digest:
@@ -37,10 +39,20 @@ def run(
     """
     load_dotenv()
     now = datetime.now(timezone.utc)
-    run_time = now.strftime("%Y-%m-%d_%H-%M-%S")
-    output_dir = Path(OUT_DIR).joinpath(run_time)
+    date_str = now.date().isoformat()
+    output_dir = Path(OUT_DIR) / date_str
+    # Optionally clear today's folder before regenerating
+    if overwrite and output_dir.exists():
+        # Only remove directories inside OUT_DIR to be safe
+        out_root = Path(OUT_DIR).resolve()
+        try:
+            resolved = output_dir.resolve()
+            if str(resolved).startswith(str(out_root)):
+                shutil.rmtree(resolved)
+        except FileNotFoundError:
+            pass
     output_dir.mkdir(parents=True, exist_ok=True)
-    outfile = output_dir.joinpath(f"dev-digest-{now.strftime('%Y-%m-%d')}.md")
+    outfile = output_dir.joinpath(f"dev-digest-{date_str}.md")
     if is_debug:
         tmp_dir = output_dir.joinpath("tmp")
         tmp_dir.mkdir(parents=True, exist_ok=True)

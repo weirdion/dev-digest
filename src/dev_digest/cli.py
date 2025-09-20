@@ -42,10 +42,18 @@ def app():
     show_default=True,
     help="Include footer"
 )
-def run(debug: bool, days: int, model_key: str, ai: bool, with_footer: bool) -> int:
+@click.option(
+    "--overwrite",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="If today's output folder exists, clear it before running."
+)
+def run(debug: bool, days: int, model_key: str, ai: bool, with_footer: bool, overwrite: bool) -> int:
     return int(
         digest_cmd.run(
             debug, days=days, model_key=model_key,
-            ai_generated=ai, include_footer=with_footer
+            ai_generated=ai, include_footer=with_footer,
+            overwrite=overwrite
             )
         or 0)

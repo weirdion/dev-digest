@@ -29,7 +29,9 @@ uv run dev-digest run --days 7 --no-ai
 # Append a footer line
 uv run dev-digest run --days 7 --no-ai --debug --with-footer
 
-# Output will be in out/YYYY-MM-DD_HH-MM-SS/
+# Output will be in out/YYYY-MM-DD/
+# Subsequent runs on the same day reuse that folder by default.
+# Use --overwrite to clear it first.
 
 # Help menu
 uv run dev-digest run --help
@@ -48,6 +50,8 @@ Options:
   --ai / --no-ai                  Use deterministic pipeline (or AI)
                                   [default: no-ai]
   -wf, --with-footer              Include footer
+  --overwrite                     If today's output folder exists, clear it
+                                  before running.  [default: False]
   --help                          Show this message and exit.
 ```
 
