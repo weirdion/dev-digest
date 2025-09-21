@@ -1,5 +1,6 @@
 import json
 import logging
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
@@ -36,9 +37,13 @@ def run(
     date_str = now.date().isoformat()
 
     output_dir = Path(OUT_DIR) / date_str
+    backup_output_dir = output_dir.with_suffix(".backup")
+    if backup_output_dir.exists():
+        log.info(f"Removing existing backup directory: {backup_output_dir}")
+        shutil.rmtree(backup_output_dir)
     if overwrite and output_dir.exists():
-        log.info(f"Moving existing output directory to _backup: {output_dir} -> {output_dir.with_suffix(".backup")}")
-        output_dir.rename(output_dir.with_suffix(".backup"))
+        log.info(f"Moving existing output directory to _backup: {output_dir} -> {backup_output_dir}")
+        output_dir.rename(backup_output_dir)
 
     output_dir.mkdir(parents=True, exist_ok=True)
     outfile = output_dir.joinpath(f"dev-digest-{date_str}.md")

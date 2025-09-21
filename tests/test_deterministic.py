@@ -348,3 +348,38 @@ def test_realpython_quiz_filtered(tmp_path):
     reasons = [d.reason for d in diag if d.title.startswith("Quiz:")]
     assert "path_filter" in reasons
     assert "Python 3.14.0rc3" in md
+
+
+def test_infrastructure_release_handling(tmp_path):
+    det = DeterministicDigest()
+    run_dir = _mk_run_dir(tmp_path)
+    now = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    items = [
+        FeedEntry(
+            title="Terraform release notes",
+            link="https://github.com/hashicorp/terraform/releases/tag/v1.13.3",
+            published=now,
+            source="Release notes from terraform",
+            summary="",
+        ),
+        FeedEntry(
+            title="Terraform beta release",
+            link="https://github.com/hashicorp/terraform/releases/tag/v1.14.0-beta1",
+            published=now,
+            source="Release notes from terraform",
+            summary="",
+        ),
+        FeedEntry(
+            title="AWS CDK release notes",
+            link="https://github.com/aws/aws-cdk/releases/tag/v2.215.0",
+            published=now,
+            source="Release notes from aws-cdk",
+            summary="",
+        ),
+    ]
+    md, diag = det.generate(items, run_dir)
+    assert "Terraform v1.13.3 (Release notes)" in md
+    assert "AWS CDK v2.215.0 (Release notes)" in md
+    assert "v1.14.0-beta1" not in md
+    reasons = [d.reason for d in diag if "v1.14.0-beta1" in d.title]
+    assert "release_prerelease" in reasons

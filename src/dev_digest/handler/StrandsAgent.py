@@ -22,6 +22,7 @@ from dev_digest.utility.security import strip_html_to_text
 from dev_digest.utility.scoring import get_profile, score_candidate
 from dev_digest.utility.sections import ordered_sections, resolve_section
 from dev_digest.utility.filters import should_exclude_link
+from dev_digest.utility.transform import format_release_title
 
 
 def _clip_words(text: str, max_words: int) -> str:
@@ -109,7 +110,22 @@ class StrandsAgent:
         The LLM is used only to produce short summaries as JSON; we handle
         categorization and formatting in code for stability.
         """
-        filtered_items = [item for item in items if not should_exclude_link(item.link)]
+        filtered_items: List[FeedEntry] = []
+        for item in items:
+            if should_exclude_link(item.link):
+                continue
+            release_info = format_release_title(item.title, item.link)
+            if release_info.is_release and release_info.is_prerelease:
+                continue
+            if release_info.is_release and release_info.title != item.title:
+                item = FeedEntry(
+                    title=release_info.title,
+                    link=item.link,
+                    summary=item.summary,
+                    source=item.source,
+                    published=item.published,
+                )
+            filtered_items.append(item)
         if not filtered_items:
             return "# Dev Digest — Week of (no data)\n\n_No items found._\n"
 
@@ -252,6 +268,7 @@ class StrandsAgent:
             enriched["combined_score"] = combined_score
             enriched["score"] = combined_score
             section_meta = resolve_section(candidate.title, candidate.source, link, short_summary)
+            enriched["title"] = normalize_release_title(enriched.get("title", ""), link)
             enriched["category"] = section_meta.title
             sections_map[section_meta.slug].append(enriched)
 

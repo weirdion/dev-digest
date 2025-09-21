@@ -25,6 +25,7 @@ from dev_digest.utility.scoring import (
 )
 from dev_digest.utility.sections import ordered_sections, resolve_section
 from dev_digest.utility.filters import should_exclude_link
+from dev_digest.utility.transform import format_release_title
 
 FRESHNESS_WINDOW_DAYS = 14
 
@@ -219,6 +220,21 @@ class DeterministicDigest:
         aws_recent_announcements: List[tuple[DigestItem, str]] = []
 
         for candidate in candidates:
+            release_info = format_release_title(candidate.title, candidate.link)
+            if release_info.is_release:
+                candidate.title = release_info.title
+                if release_info.is_prerelease:
+                    diagnostics.append(
+                        self._diagnostic(
+                            candidate=candidate,
+                            item=None,
+                            included=False,
+                            reason="release_prerelease",
+                            section=None,
+                        )
+                    )
+                    continue
+
             freshness = self._freshness_score(candidate.published, run_dt)
             heuristic, model_score, combined = score_candidate(
                 candidate,

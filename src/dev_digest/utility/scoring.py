@@ -195,6 +195,12 @@ def compute_heuristic_score(candidate: DigestCandidate, config: HeuristicConfig)
         score += config.government
     score += _iac_release_bonus(title_lower, config.iac_release)
 
+    canonical = (getattr(candidate, "canonical_url", "") or "").lower()
+    if "github.com/hashicorp/terraform/releases/tag/" in canonical:
+        score += 12
+    if "github.com/aws/aws-cdk/releases/tag/" in canonical:
+        score += 12
+
     if any(term in title_lower for term in NEG_WEBINAR_TERMS):
         score -= config.negative_webinar
     if any(term in title_lower for term in CLICKBAIT_TERMS):
