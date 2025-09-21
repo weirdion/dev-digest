@@ -1,11 +1,17 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 import json
 import re
 
 from dev_digest.handler.DeterministicDigest import DeterministicDigest
-from dev_digest.model import FeedEntry
+from dev_digest.model import DigestCandidate, FeedEntry
+from dev_digest.utility.scoring import (
+    classify_recent_announcement,
+    get_profile,
+    infer_category,
+    score_candidate,
+)
 
 
 def _mk_run_dir(tmp_path: Path, stamp: str = "2025-01-01_00-00-00") -> Path:
@@ -15,28 +21,76 @@ def _mk_run_dir(tmp_path: Path, stamp: str = "2025-01-01_00-00-00") -> Path:
 
 
 def test_heuristic_score_signals():
-    det = DeterministicDigest()
-    pos = det._heuristic_score(
+    profile = get_profile("deterministic")
+    pos_candidate = DigestCandidate(
         title="Generally available: performance improvements in Rust allocator",
-        summary="allocator performance", source="Cloudflare"
+        link="",
+        canonical_url="",
+        source="Cloudflare",
+        summary="allocator performance",
+        published=None,
     )
-    neg = det._heuristic_score(
-        title="Webinar: unlocking next-generation cloud", summary="",
-        source="Some Blog"
+    neg_candidate = DigestCandidate(
+        title="Webinar: unlocking next-generation cloud",
+        link="",
+        canonical_url="",
+        source="Some Blog",
+        summary="",
+        published=None,
     )
+    pos, _, _ = score_candidate(pos_candidate, profile)
+    neg, _, _ = score_candidate(neg_candidate, profile)
     assert pos > neg
     assert pos > 20
 
 
 def test_infer_category_mapping():
-    det = DeterministicDigest()
-    assert det._infer_category("CVE-2024-1234 discovered", "") == "Security & Alerts"
-    assert det._infer_category("Terraform v1.9 released", "") == "Infrastructure as Code"
-    assert det._infer_category("Kubernetes tips", "") == "Kubernetes/Containers"
-    assert det._infer_category("Python typing improvements", "") == "Python"
-    assert det._infer_category("New CLI tool", "") == "CLI & Dev Tools"
-    assert det._infer_category("ML perf", "") == "ML & AI"
-    assert det._infer_category("AWS feature", "") == "AWS & Cloud"
+    assert infer_category("CVE-2024-1234 discovered", "") == "Security & Alerts"
+    assert infer_category("Terraform v1.9 released", "") == "Infrastructure as Code"
+    assert infer_category("Kubernetes tips", "") == "Kubernetes/Containers"
+    assert infer_category("Python typing improvements", "") == "Python"
+    assert infer_category("New CLI tool", "") == "CLI & Dev Tools"
+    assert infer_category("ML perf", "") == "ML & AI"
+    assert infer_category("AWS feature", "") == "AWS & Cloud"
+
+
+def test_classify_recent_announcement():
+    critical = DigestCandidate(
+        title="Security update fixes CVE-2025-0001",
+        link="",
+        canonical_url="",
+        source="Recent Announcements",
+        summary="",
+        published=None,
+    )
+    high = DigestCandidate(
+        title="Now generally available: AWS Widget",
+        link="",
+        canonical_url="",
+        source="Recent Announcements",
+        summary="",
+        published=None,
+    )
+    medium = DigestCandidate(
+        title="AWS Widget preview adds integration",
+        link="",
+        canonical_url="",
+        source="Recent Announcements",
+        summary="",
+        published=None,
+    )
+    low = DigestCandidate(
+        title="AWS Widget now available in us-east-1",
+        link="",
+        canonical_url="",
+        source="Recent Announcements",
+        summary="",
+        published=None,
+    )
+    assert classify_recent_announcement(critical) == "critical"
+    assert classify_recent_announcement(high) == "high"
+    assert classify_recent_announcement(medium) == "medium"
+    assert classify_recent_announcement(low) == "low"
 
 
 def test_short_summary_truncates():
@@ -66,12 +120,17 @@ def test_low_signal_recent_announcements_filtered(tmp_path):
         ),
     ]
     md, diag = det.generate(items, run_dir)
-    # Ensure Recent Announcements item excluded with low_signal reason
-    reasons = [d.reason for d in diag if not d.included]
-    assert "low_signal" in reasons
-    # Only non-RA item should appear
-    assert "Cloudflare" in md
-    assert "Recent Announcements" not in md
+
+    assert "## AWS Recent Announcements" in md
+    assert "### Low" in md
+    assert "service quotas update" in md
+
+    aws_cloud_section = next((section for section in md.split("## ") if section.startswith("AWS & Cloud")), "")
+    assert "service quotas update" not in aws_cloud_section
+
+    ra_diags = [d for d in diag if d.title.startswith("Now available in us-east-1")]
+    assert any(d.reason == "aws_ra_section" and d.aws_severity == "low" for d in ra_diags if not d.included)
+    assert any(d.included and d.section == "AWS Recent Announcements" and d.aws_severity == "low" for d in ra_diags)
 
 
 def test_per_section_cap_and_diagnostics(tmp_path):
@@ -191,3 +250,75 @@ def test_markdown_item_format(tmp_path):
     line = next((l for l in md.splitlines() if l.startswith("- ")), "")
     assert "**GitHub CLI improvements" in line
     assert re.search(r"Read: https://", line)
+
+
+def test_aws_recent_announcements_section(tmp_path):
+    det = DeterministicDigest()
+    run_dir = _mk_run_dir(tmp_path)
+    now = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    items = [
+        FeedEntry(
+            title="Core blog story",
+            link="https://example.com/post",
+            published=now,
+            source="AWS Architecture Blog",
+            summary="Deep dive",
+        ),
+        FeedEntry(
+            title="Security patch resolves vulnerability",
+            link="https://aws.amazon.com/about-aws/whats-new/security-patch",
+            published=now,
+            source="Recent Announcements",
+            summary="Security update",
+        ),
+        FeedEntry(
+            title="AWS Widget now available in us-east-1",
+            link="https://aws.amazon.com/about-aws/whats-new/us-east-1-widget",
+            published=now,
+            source="Recent Announcements",
+            summary="",
+        ),
+    ]
+
+    md, diag = det.generate(items, run_dir)
+    assert "## AWS Recent Announcements" in md
+    assert "### Critical" in md
+    assert "Security patch resolves vulnerability" in md
+    assert "### Low" in md
+    assert "AWS Widget now available in us-east-1" in md
+
+    security_section = next((section for section in md.split("## ") if section.startswith("Security & Alerts")), "")
+    assert "Security patch resolves vulnerability" in security_section
+    aws_cloud_section = next((section for section in md.split("## ") if section.startswith("AWS & Cloud")), "")
+    assert "AWS Widget now available in us-east-1" not in aws_cloud_section
+
+    # Collect diagnostics for the low-severity announcement
+    low_diag = [d for d in diag if d.title.startswith("AWS Widget")]
+    assert any(d.reason == "aws_ra_section" and d.aws_severity == "low" for d in low_diag if not d.included)
+    assert any(d.section == "AWS Recent Announcements" and d.included and d.aws_severity == "low" for d in low_diag)
+
+
+def test_combined_score_prefers_recent_items(tmp_path):
+    det = DeterministicDigest()
+    run_dir = _mk_run_dir(tmp_path)
+    run_date = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    items = [
+        FeedEntry(
+            title="GA release for Widget",
+            link="https://example.com/widget",
+            published=run_date,
+            source="AWS Architecture Blog",
+            summary="GA release",
+        ),
+        FeedEntry(
+            title="GA release for Gizmo",
+            link="https://example.com/gizmo-old",
+            published=run_date - timedelta(days=7),
+            source="AWS Architecture Blog",
+            summary="GA release",
+        ),
+    ]
+    _, diag = det.generate(items, run_dir)
+    included = {d.title: d for d in diag if d.included}
+    assert included["GA release for Widget"].combined_score > included["GA release for Gizmo"].combined_score
+    assert included["GA release for Widget"].model_score >= included["GA release for Gizmo"].model_score

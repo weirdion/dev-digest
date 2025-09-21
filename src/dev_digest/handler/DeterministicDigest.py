@@ -18,6 +18,12 @@ from dev_digest.utility.constants import (
 )
 from dev_digest.utility.security import strip_html_to_text
 from dev_digest.utility.tools import canonicalize_url, normalize_text
+from dev_digest.utility.scoring import (
+    classify_recent_announcement,
+    get_profile,
+    infer_category,
+    score_candidate,
+)
 
 
 SECTION_ORDER = [
@@ -31,6 +37,8 @@ SECTION_ORDER = [
     "CLI & Dev Tools",
     "Misc",
 ]
+
+FRESHNESS_WINDOW_DAYS = 14
 
 
 def _json_default(obj):
@@ -47,54 +55,13 @@ class DeterministicDigest:
         self.per_section_cap = per_section_cap
         self.max_total = max_total
         self.top_picks = top_picks
-
-    # ---------- heuristics ----------
-    def _heuristic_score(self, title: str, summary: str, source: str) -> float:
-        t = (title or "").lower()
-        s = (source or "").lower()
-        suml = (summary or "").lower()
-        score = 0.0
-
-        if any(k in t for k in ["generally available", "ga ", "ga:", "stable release", "v1.0"]):
-            score += 28
-        if any(k in t for k in ["preview", "public preview", "beta"]):
-            score += 16
-        if any(k in t for k in ["postmortem", "incident", "outage", "root cause"]):
-            score += 32
-        if "cve-" in t or "cve-" in suml or "0-day" in t or "security" in t:
-            score += 26
-        if any(k in t for k in ["deprecate", "breaking change", "removed", "end of support"]):
-            score += 24
-        if any(k in t for k in PERFORMANCE_TERMS):
-            score += 18
-        if any(k in s for k in ["cloudflare", "github", "google", "microsoft"]):
-            score += 6
-        if any(k in t for k in ["open source", "oss", "released", "announce"]):
-            score += 10
-
-        if any(k in t for k in LANGUAGE_FEATURE_TERMS):
-            score += 16
-        if any(k in t for k in ["branch", "branching"]):
-            score += 8
-        if any(k in t for k in ["sdk", "cli"]):
-            score += 6
-        if "part 2" in t:
-            score += 6
-        if any(k in t for k in ["government", "education", "schools", "policy", "partnership"]):
-            score += 8
-        if any(k in t for k in IAC_HIGH_SIGNAL_TERMS) and (
-            re.search(r"\bv\d+\.\d+\b", t) or "release" in t or "changelog" in t or "what's new" in t
-        ):
-            score += 16
-
-        if any(k in t for k in ["webinar", "podcast", "training", "certification", "partner", "regional"]):
-            score -= 30
-        if any(k in t for k in [
-            "unlocking", "next-generation", "game-changing", "supercharge", "ultimate", "transformative",
-            "revolutionize", "revolutionizing", "seamless", "empower", "unleash"
-        ]):
-            score -= 14
-        return max(0.0, min(100.0, score))
+        self.scoring_profile = get_profile("deterministic")
+        self.ra_section_caps: Dict[str, int | None] = {
+            "critical": None,
+            "high": 5,
+            "medium": 5,
+            "low": 3,
+        }
 
     # ---------- helpers ----------
     def _short_summary(self, text: str, max_words: int = 30) -> str:
@@ -105,29 +72,6 @@ class DeterministicDigest:
         if len(words) > max_words:
             candidate = " ".join(words[:max_words])
         return candidate.strip()
-
-    def _infer_category(self, title: str, source: str) -> str:
-        t = (title or "").lower()
-        s = (source or "").lower()
-        if ("security" in s) or ("security" in t) or ("cve" in t) or any(
-            k in t for k in ["honeypot", "malware", "ransomware", "exploit", "vulnerability", "attack", "zero-day", "0-day"]
-        ):
-            return "Security & Alerts"
-        if "aws" in s or "aws" in t or "cloud" in t:
-            return "AWS & Cloud"
-        if any(k in t for k in ["terraform", "pulumi", "cdk", "infrastructure as code"]):
-            return "Infrastructure as Code"
-        if any(k in t for k in ["kubernetes", "k8s", "helm", "istio", "cncf", "container"]):
-            return "Kubernetes/Containers"
-        if "python" in s or "python" in t:
-            return "Python"
-        if any(k in t for k in ["devops", "cicd", "ci/cd", "sre"]):
-            return "DevOps"
-        if any(k in t for k in ["cli", "tool", "github", "git", "terminal"]):
-            return "CLI & Dev Tools"
-        if any(k in t for k in ["ai", "ml", "machine learning", "llm"]):
-            return "ML & AI"
-        return "Misc"
 
     def _ts(self, published: datetime | str | None) -> float:
         if isinstance(published, datetime):
@@ -147,6 +91,19 @@ class DeterministicDigest:
         stop = {"the", "and", "for", "with", "into", "your", "our", "are", "was", "were", "this", "that", "from", "you", "now", "new", "aws", "blog"}
         return {w for w in t.split() if len(w) > 2 and w not in stop}
 
+    def _freshness_score(self, published: datetime | None, run_dt: datetime) -> float:
+        if not isinstance(published, datetime):
+            return 0.0
+        try:
+            delta_days = (run_dt.date() - published.date()).days
+        except Exception:
+            return 0.0
+        if delta_days <= 0:
+            return 100.0
+        if delta_days >= FRESHNESS_WINDOW_DAYS:
+            return 0.0
+        return round(100.0 * (1 - (delta_days / FRESHNESS_WINDOW_DAYS)), 3)
+
     def _diagnostic(
         self,
         *,
@@ -158,6 +115,7 @@ class DeterministicDigest:
         section: str | None = None,
         position: int | None = None,
         featured: bool = False,
+        aws_severity: str | None = None,
     ) -> DiagnosticRecord:
         if item is not None:
             return DiagnosticRecord(
@@ -175,6 +133,7 @@ class DeterministicDigest:
                 section=section,
                 position_in_section=position,
                 featured_top_pick=featured,
+                aws_severity=aws_severity,
             )
         assert candidate is not None
         return DiagnosticRecord(
@@ -192,6 +151,7 @@ class DeterministicDigest:
             section=section,
             position_in_section=position,
             featured_top_pick=featured,
+            aws_severity=aws_severity,
         )
 
     # ---------- pipeline ----------
@@ -203,6 +163,7 @@ class DeterministicDigest:
         seen_titles: set[str] = set()
         diagnostics: List[DiagnosticRecord] = []
         candidates: List[DigestCandidate] = []
+        run_dt = datetime.fromisoformat(run_date)
 
         for raw in items:
             title = normalize_text(strip_html_to_text(raw.title))
@@ -223,21 +184,6 @@ class DeterministicDigest:
             )
 
             tl = title.lower()
-            if source.lower() == "recent announcements" and (
-                any(k in tl for k in AWS_WHATS_NEW_LOW_SIGNAL)
-                or any(term.lower() in tl for term in AWS_REGION_TERMS)
-            ):
-                diagnostics.append(
-                    self._diagnostic(
-                        candidate=candidate,
-                        item=None,
-                        included=False,
-                        reason="low_signal",
-                        section=None,
-                    )
-                )
-                continue
-
             if not title and not canon:
                 diagnostics.append(
                     self._diagnostic(
@@ -268,22 +214,46 @@ class DeterministicDigest:
             candidates.append(candidate)
 
         scored: List[DigestItem] = []
+        aws_recent_announcements: List[tuple[DigestItem, str]] = []
+        main_section_ra_severities = {"critical", "high"}
+
         for candidate in candidates:
-            heuristic = round(self._heuristic_score(candidate.title, candidate.summary, candidate.source), 3)
-            model_score = round(heuristic, 3)
-            combined = round(min(100.0, max(0.0, 0.6 * heuristic + 0.4 * model_score)), 3)
-            short_summary = self._short_summary(candidate.summary, 30)
-            category = self._infer_category(candidate.title, candidate.source)
-            scored.append(
-                DigestItem.from_candidate(
-                    candidate,
-                    short_summary=short_summary,
-                    category=category,
-                    heuristic_score=heuristic,
-                    model_score=model_score,
-                    combined_score=combined,
-                )
+            freshness = self._freshness_score(candidate.published, run_dt)
+            heuristic, model_score, combined = score_candidate(
+                candidate,
+                self.scoring_profile,
+                model_score=freshness,
             )
+            short_summary = self._short_summary(candidate.summary, 30)
+            category = infer_category(candidate.title, candidate.source)
+            item = DigestItem.from_candidate(
+                candidate,
+                short_summary=short_summary,
+                category=category,
+                heuristic_score=heuristic,
+                model_score=model_score,
+                combined_score=combined,
+            )
+
+            if candidate.source.strip().lower() == "recent announcements":
+                severity = classify_recent_announcement(candidate)
+                aws_recent_announcements.append((item, severity))
+                if severity not in main_section_ra_severities:
+                    diagnostics.append(
+                        self._diagnostic(
+                            candidate=None,
+                            item=item,
+                            included=False,
+                            reason="aws_ra_section",
+                            category="AWS & Cloud",
+                            section=None,
+                            aws_severity=severity,
+                        )
+                    )
+                    continue
+            scored.append(item)
+
+        ra_severity_map = {item.canonical_url: severity for item, severity in aws_recent_announcements}
 
         sections: DefaultDict[str, List[DigestItem]] = defaultdict(list)
         for item in scored:
@@ -360,6 +330,7 @@ class DeterministicDigest:
                         reason="ra_microcap",
                         category="AWS & Cloud",
                         section=None,
+                        aws_severity=ra_severity_map.get(item.canonical_url),
                     )
                 )
             sections["AWS & Cloud"] = capped[: self.per_section_cap]
@@ -463,9 +434,73 @@ class DeterministicDigest:
                         section="Interesting Reads",
                         position=None,
                         featured=True,
+                        aws_severity=ra_severity_map.get(item.canonical_url),
                     )
                 )
             lines.append("")
+
+        # AWS Recent Announcements section
+        severity_order = ["critical", "high", "medium", "low"]
+        severity_labels = {
+            "critical": "Critical",
+            "high": "High",
+            "medium": "Medium",
+            "low": "Low",
+        }
+        selected_ra: Dict[str, List[DigestItem]] = {}
+        for severity in severity_order:
+            items = [item for item, sev in aws_recent_announcements if sev == severity]
+            if not items:
+                continue
+            items.sort(key=lambda x: self._ts(x.published), reverse=True)
+            cap = self.ra_section_caps.get(severity)
+            if cap is not None and cap >= 0:
+                trimmed = items[cap:]
+                for item in trimmed:
+                    diagnostics.append(
+                        self._diagnostic(
+                            candidate=None,
+                            item=item,
+                            included=False,
+                            reason="aws_ra_cap",
+                            category="AWS Recent Announcements",
+                            section=None,
+                            aws_severity=severity,
+                        )
+                    )
+                items = items[:cap]
+            if items:
+                selected_ra[severity] = items
+
+        if selected_ra:
+            lines.append("## AWS Recent Announcements")
+            for severity in severity_order:
+                group = selected_ra.get(severity)
+                if not group:
+                    continue
+                lines.append(f"### {severity_labels[severity]}")
+                for pos, item in enumerate(group):
+                    date_str = run_date
+                    if isinstance(item.published, datetime):
+                        date_str = item.published.date().isoformat()
+                    title = item.title.strip()
+                    link = item.link
+                    bullet = f"- {date_str} — [{title}]({link})" if link else f"- {date_str} — {title}"
+                    lines.append(bullet)
+                    diagnostics.append(
+                        self._diagnostic(
+                            candidate=None,
+                            item=item,
+                            included=True,
+                            reason="included",
+                            category="AWS Recent Announcements",
+                            section="AWS Recent Announcements",
+                            position=pos,
+                            featured=False,
+                            aws_severity=severity,
+                        )
+                    )
+                lines.append("")
 
         for cat in SECTION_ORDER:
             arr = sections.get(cat, [])
@@ -498,6 +533,7 @@ class DeterministicDigest:
                         section=cat,
                         position=pos,
                         featured=False,
+                        aws_severity=ra_severity_map.get(item.canonical_url),
                     )
                 )
 
@@ -546,6 +582,7 @@ class DeterministicDigest:
                 for d in included
             )
             by_section = Counter(d.section or "" for d in included)
+            by_severity = Counter(d.aws_severity or "" for d in included if d.aws_severity)
             top10 = sorted(
                 included,
                 key=lambda x: (x.combined_score, self._ts(x.published)),
@@ -567,6 +604,11 @@ class DeterministicDigest:
             for section, count in by_section.most_common():
                 lines_md.append(f"- {section or '(none)'}: {count}")
             lines_md.append("")
+            if by_severity:
+                lines_md.append("## AWS Recent Announcements by severity")
+                for severity, count in by_severity.most_common():
+                    lines_md.append(f"- {severity}: {count}")
+                lines_md.append("")
             lines_md.append("## Top 10 included by score")
             for record in top10:
                 lines_md.append(f"- {record.combined_score:>5} — {record.title} ({record.source})")

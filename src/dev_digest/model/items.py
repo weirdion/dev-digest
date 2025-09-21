@@ -120,6 +120,7 @@ class DiagnosticRecord:
     section: Optional[str] = None
     position_in_section: Optional[int] = None
     featured_top_pick: bool = False
+    aws_severity: Optional[str] = None
 
     def to_dict(self) -> dict:
         return {
@@ -137,6 +138,7 @@ class DiagnosticRecord:
             "section": self.section,
             "position_in_section": self.position_in_section,
             "featured_top_pick": self.featured_top_pick,
+            "aws_severity": self.aws_severity,
         }
 
 

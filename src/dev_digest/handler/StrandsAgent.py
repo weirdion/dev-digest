@@ -1,5 +1,4 @@
 import json
-import math
 import re
 from dataclasses import asdict
 from datetime import datetime, timezone
@@ -15,16 +14,11 @@ from dev_digest.utility.constants import (
     MAX_STORIES_TOTAL,
     MODEL_PROFILES,
     DEFAULT_MODEL_KEY,
-    CLICKBAIT_TERMS,
-    AWS_WHATS_NEW_LOW_SIGNAL,
-    AWS_REGION_TERMS,
-    PERFORMANCE_TERMS,
-    LANGUAGE_FEATURE_TERMS,
-    IAC_HIGH_SIGNAL_TERMS,
 )
 from dev_digest.utility.metrics import usage_summary
 from dev_digest.utility.tools import canonicalize_url
 from dev_digest.utility.security import strip_html_to_text
+from dev_digest.utility.scoring import get_profile, infer_category, score_candidate
 
 
 SECTION_ORDER = [
@@ -38,33 +32,6 @@ SECTION_ORDER = [
     "CLI & Dev Tools",
     "Misc",
 ]
-
-
-def _infer_category(title: str, source: str) -> str:
-    t = (title or "").lower()
-    s = (source or "").lower()
-    if (
-        "security" in s
-        or "security" in t
-        or "cve" in t
-        or any(k in t for k in ["honeypot", "malware", "ransomware", "exploit", "vulnerability", "attack", "zero-day", "0-day"])  # noqa: E501
-    ):
-        return "Security & Alerts"
-    if "aws" in s or "aws" in t or "cloud" in t:
-        return "AWS & Cloud"
-    if any(k in t for k in ["terraform", "pulumi", "cdk", "infrastructure as code"]):
-        return "Infrastructure as Code"
-    if any(k in t for k in ["kubernetes", "k8s", "helm", "istio", "cncf", "container"]):
-        return "Kubernetes/Containers"
-    if "python" in s or "python" in t:
-        return "Python"
-    if any(k in t for k in ["devops", "cicd", "ci/cd", "sre"]):
-        return "DevOps"
-    if any(k in t for k in ["cli", "tool", "github", "git", "terminal"]):
-        return "CLI & Dev Tools"
-    if any(k in t for k in ["ai", "ml", "machine learning", "llm"]):
-        return "ML & AI"
-    return "Misc"
 
 
 def _clip_words(text: str, max_words: int) -> str:
@@ -258,62 +225,6 @@ class StrandsAgent:
             summaries = {}
             llm_scores = {}
 
-        def _heuristic_score(title: str, summary: str, source: str) -> float:
-            t = (title or "").lower()
-            s = (source or "").lower()
-            suml = (summary or "").lower()
-            score = 0.0
-            # Positive signals
-            if any(k in t for k in ["generally available", "ga ", "ga:", "stable release", "v1.0"]):
-                score += 8
-            if any(k in t for k in ["preview", "public preview", "beta"]):
-                score += 8
-            if any(k in t for k in ["postmortem", "incident", "outage", "root cause"]):
-                score += 12
-            if "cve-" in t or "cve-" in suml or "0-day" in t:
-                score += 10
-            if any(k in t for k in ["deprecate", "breaking change", "removed", "end of support"]):
-                score += 14
-            if any(k in t for k in PERFORMANCE_TERMS):
-                score += 12
-            if any(k in s for k in ["aws", "cloudflare", "github", "google", "microsoft"]):
-                score += 6
-            if any(k in t for k in ["open source", "oss", "released", "announce"]):
-                score += 10
-            # Preference signals from feedback
-            if any(k in t for k in LANGUAGE_FEATURE_TERMS):
-                score += 16
-            if any(k in t for k in ["branch", "branching"]):
-                score += 8
-            if any(k in t for k in ["sdk", "cli"]):
-                score += 6
-            if "part 2" in t:
-                score += 6
-            if any(k in t for k in ["government", "education", "schools", "policy", "partnership"]):
-                score += 8
-            # IaC (Terraform/CDK/Pulumi) release notes are important for developers
-            if any(k in t for k in IAC_HIGH_SIGNAL_TERMS) and (
-                re.search(r"\bv\d+\.\d+\b", t) or "release" in t or "changelog" in t or "what's new" in t
-            ):
-                score += 8
-            # Negative signals
-            if any(k in t for k in ["webinar", "podcast", "training", "certification", "partner", "regional"]):
-                score -= 30
-            if any(k in t for k in CLICKBAIT_TERMS):
-                score -= 14
-            # De-prioritize lightweight What's New unless strong positives
-            if s == "recent announcements" and not any(x in t for x in ["ga", "generally available", "security", "cve", "deprecat", "breaking"]):
-                score -= 18
-            if any(k in t for k in AWS_WHATS_NEW_LOW_SIGNAL):
-                score -= 18
-            if any(term.lower() in t for term in AWS_REGION_TERMS):
-                score -= 16
-            # Downweight policy-only TLS updates that are not broadly actionable this week
-            if any(k in t for k in ["tls policy", "post-quantum"]) and s == "recent announcements":
-                score -= 10
-            # Clamp
-            return max(0.0, min(100.0, score))
-
         def _ts(d: Any) -> float:
             if isinstance(d, datetime):
                 try:
@@ -322,25 +233,35 @@ class StrandsAgent:
                     return 0.0
             return 0.0
 
-        def _combine_score(idx: int, title: str, summary: str, source: str) -> float:
-            h = _heuristic_score(title, summary, source)
-            l = llm_scores.get(idx, 0.0)
-            combined = 0.6 * l + 0.4 * h
-            if math.isnan(combined) or math.isinf(combined):
-                combined = h or l or 0.0
-            return max(0.0, min(100.0, combined))
-
         # Build sections deterministically
         sections: DefaultDict[str, List[Dict[str, Any]]] = defaultdict(list)
-        for idx, it in indexed:
-            enriched = dict(it)
-            enriched["short_summary"] = summaries.get(idx, (it.get("summary") or "").strip())
-            title = enriched.get("title", "")
-            source = enriched.get("source", "")
-            enriched["score"] = _combine_score(idx, title, enriched["short_summary"], source)
-            cat = _infer_category(title, source)
-            enriched["category"] = cat
-            sections[cat].append(enriched)
+        profile = get_profile("ai")
+        for idx, original in indexed:
+            enriched = dict(original)
+            raw_summary = original.get("summary") or ""
+            short_summary = summaries.get(idx, raw_summary).strip()
+            link = enriched.get("link") or enriched.get("url") or ""
+            candidate = DigestCandidate(
+                title=enriched.get("title", ""),
+                link=link,
+                canonical_url=canonicalize_url(link),
+                source=enriched.get("source", ""),
+                summary=raw_summary,
+                published=enriched.get("published"),
+            )
+            heuristic_score, model_score_val, combined_score = score_candidate(
+                candidate,
+                profile,
+                model_score=llm_scores.get(idx),
+            )
+            enriched["short_summary"] = short_summary
+            enriched["heuristic_score"] = heuristic_score
+            enriched["model_score"] = model_score_val
+            enriched["combined_score"] = combined_score
+            enriched["score"] = combined_score
+            category = infer_category(candidate.title, candidate.source)
+            enriched["category"] = category
+            sections[category].append(enriched)
 
         # Sort by score then date, merge near-duplicate stories per section, then enforce per-section cap
         def _topic_tokens(title: str) -> set[str]:
