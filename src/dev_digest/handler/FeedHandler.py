@@ -8,9 +8,9 @@ from pathlib import Path
 
 import feedparser
 
+from dev_digest.model import FeedEntry
 from dev_digest.utility.constants import (
-    KEYWORDS_TO_IGNORE,
-    OUT_DIR as OUT_ROOT
+    OUT_DIR as OUT_ROOT,
 )
 from dev_digest.utility.tools import normalize_text, within_window
 from dev_digest.utility.security import sanitize_text, strip_html_to_text
@@ -63,12 +63,12 @@ class FeedHandler:
         return datetime.fromtimestamp(time.mktime(t), tz=timezone.utc)
 
     def fetch_recent(self, feed_urls: List[str], now_utc: datetime,
-                     window_days: int, overwrite: bool = False) -> List[Dict[str, Any]]:
+                     window_days: int, overwrite: bool = False) -> List[FeedEntry]:
         """
         Fetch and filter recent posts from a list of feeds within the time window.
         Returns a list of dicts: {title, link, published, source}
         """
-        results: List[Dict[str, Any]] = []
+        results: List[FeedEntry] = []
         total = 0
         # Optional cache: out/YYYY-MM-DD/tmp/feed.json
         # If present and overwrite is False, read and return cached items.
@@ -78,7 +78,7 @@ class FeedHandler:
                 cache_file = Path(OUT_ROOT).joinpath(date_str, "tmp", "feed.json")
                 if cache_file.exists():
                     data = json.loads(cache_file.read_text(encoding="utf-8"))
-                    cached: List[Dict[str, Any]] = []
+                    cached: List[FeedEntry] = []
                     for it in data if isinstance(data, list) else []:
                         if not isinstance(it, dict):
                             continue
@@ -91,13 +91,15 @@ class FeedHandler:
                                 pub_dt = None
                         elif isinstance(pub, datetime):
                             pub_dt = pub
-                        cached.append({
-                            "title": it.get("title", ""),
-                            "link": it.get("link", ""),
-                            "published": pub_dt,
-                            "source": it.get("source", ""),
-                            "summary": it.get("summary", ""),
-                        })
+                        cached.append(
+                            FeedEntry(
+                                title=it.get("title", ""),
+                                link=it.get("link", ""),
+                                published=pub_dt,
+                                source=it.get("source", ""),
+                                summary=it.get("summary", ""),
+                            )
+                        )
                     log.info(f"Loaded {len(cached)} items from cache: {cache_file}")
                     return cached
             except Exception as e:
@@ -118,13 +120,13 @@ class FeedHandler:
                 summary = sanitize_text(normalize_text(strip_html_to_text(raw_summary)))
 
                 results.append(
-                    {
-                        "title": title,
-                        "link": link,
-                        "published": published_dt,
-                        "source": self._normalize_source(link, parsed.feed.get("title", url)),
-                        "summary": summary,
-                    }
+                    FeedEntry(
+                        title=title,
+                        link=link,
+                        published=published_dt,
+                        source=self._normalize_source(link, parsed.feed.get("title", url)),
+                        summary=summary,
+                    )
                 )
                 count_for_feed += 1
                 total += 1

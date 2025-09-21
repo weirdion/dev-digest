@@ -2,13 +2,14 @@ import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List
 
 from dotenv import load_dotenv
 
 from dev_digest.handler.FeedHandler import FeedHandler
 from dev_digest.handler.StrandsAgent import StrandsAgent
 from dev_digest.handler.DeterministicDigest import DeterministicDigest
+from dev_digest.model import FeedEntry
 from dev_digest.utility.constants import MARDOWN_FOOTER, WINDOW_DAYS, OUT_DIR, DEFAULT_MODEL_KEY
 from dev_digest.utility.feeds import ALL_FEEDS
 from dev_digest.utility.security import validate_feed_urls
@@ -47,7 +48,7 @@ def run(
 
     # 1) Fetch feeds (with security validation)
     validated_feeds = validate_feed_urls(ALL_FEEDS)
-    feed_items: List[Dict[str, Any]] = feed_handler.fetch_recent(validated_feeds, now, days, overwrite)
+    feed_items: List[FeedEntry] = feed_handler.fetch_recent(validated_feeds, now, days, overwrite)
     log.info(f"Found {len(feed_items)} recent items")
     if is_debug:
         write_to_file(tmp_dir, "feed.json", feed_items)

@@ -5,6 +5,7 @@ import json
 import re
 
 from dev_digest.handler.DeterministicDigest import DeterministicDigest
+from dev_digest.model import FeedEntry
 
 
 def _mk_run_dir(tmp_path: Path, stamp: str = "2025-01-01_00-00-00") -> Path:
@@ -49,24 +50,24 @@ def test_low_signal_recent_announcements_filtered(tmp_path):
     det = DeterministicDigest()
     run_dir = _mk_run_dir(tmp_path)
     items = [
-        {
-            "title": "Now available in us-east-1: service quotas update",
-            "link": "https://aws.amazon.com/about-aws/whats-new/2025/xx",
-            "published": datetime(2025, 1, 1, tzinfo=timezone.utc),
-            "source": "Recent Announcements",
-            "summary": "",
-        },
-        {
-            "title": "Cloudflare postmortem of incident",
-            "link": "https://blog.cloudflare.com/postmortem-xyz",
-            "published": datetime(2025, 1, 1, tzinfo=timezone.utc),
-            "source": "Cloudflare Blog",
-            "summary": "Postmortem details",
-        },
+        FeedEntry(
+            title="Now available in us-east-1: service quotas update",
+            link="https://aws.amazon.com/about-aws/whats-new/2025/xx",
+            published=datetime(2025, 1, 1, tzinfo=timezone.utc),
+            source="Recent Announcements",
+            summary="",
+        ),
+        FeedEntry(
+            title="Cloudflare postmortem of incident",
+            link="https://blog.cloudflare.com/postmortem-xyz",
+            published=datetime(2025, 1, 1, tzinfo=timezone.utc),
+            source="Cloudflare Blog",
+            summary="Postmortem details",
+        ),
     ]
     md, diag = det.generate(items, run_dir)
     # Ensure Recent Announcements item excluded with low_signal reason
-    reasons = [d.get("reason") for d in diag if not d.get("included")]
+    reasons = [d.reason for d in diag if not d.included]
     assert "low_signal" in reasons
     # Only non-RA item should appear
     assert "Cloudflare" in md
@@ -81,22 +82,22 @@ def test_per_section_cap_and_diagnostics(tmp_path):
     # Use distinct tokens to avoid near-duplicate merging; ensures per-section cap applies
     tokens = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf"]
     items = [
-        {
-            "title": f"Security bulletin {tok}",
-            "link": f"https://example.com/sec/{i}",
-            "published": base_time,
-            "source": "Security Blog",
-            "summary": "CVE-2025-0000",
-        }
+        FeedEntry(
+            title=f"Security bulletin {tok}",
+            link=f"https://example.com/sec/{i}",
+            published=base_time,
+            source="Security Blog",
+            summary="CVE-2025-0000",
+        )
         for i, tok in enumerate(tokens)
     ]
     md, diag = det.generate(items, run_dir)
     # One item is featured as a top pick (even when top_picks=0),
     # so the section retains cap-1 included items.
-    included_titles = [d["title"] for d in diag if d.get("included") and d.get("section") == "Security & Alerts"]
+    included_titles = [d.title for d in diag if d.included and d.section == "Security & Alerts"]
     assert len(included_titles) == 2
     # The rest should have per_section_cap reason
-    reasons = [d.get("reason") for d in diag if not d.get("included")]
+    reasons = [d.reason for d in diag if not d.included]
     assert "per_section_cap" in reasons
 
 
@@ -106,21 +107,29 @@ def test_ra_microcap_within_aws(tmp_path):
     now = datetime(2025, 1, 1, tzinfo=timezone.utc)
     # Mix of AWS RA and non-RA
     items = [
-        {"title": "Big AWS blog post", "link": "https://aws.amazon.com/blogs/architecture/abc", "published": now, "source": "AWS Architecture Blog", "summary": "deep"},
+        FeedEntry(
+            title="Big AWS blog post",
+            link="https://aws.amazon.com/blogs/architecture/abc",
+            published=now,
+            source="AWS Architecture Blog",
+            summary="deep",
+        ),
     ]
     # 5 RA items
     for i in range(5):
-        items.append({
-            "title": f"Now available in eu-west-1 {i}",
-            "link": f"https://aws.amazon.com/about-aws/whats-new/{i}",
-            "published": now,
-            "source": "Recent Announcements",
-            "summary": "",
-        })
+        items.append(
+            FeedEntry(
+                title=f"Now available in eu-west-1 {i}",
+                link=f"https://aws.amazon.com/about-aws/whats-new/{i}",
+                published=now,
+                source="Recent Announcements",
+                summary="",
+            )
+        )
     md, diag = det.generate(items, run_dir)
     # In AWS & Cloud, at most 2 RA items remain due to micro-cap
-    aws_included = [d for d in diag if d.get("included") and d.get("section") == "AWS & Cloud"]
-    ra_included = [d for d in aws_included if (d.get("source") or "").strip().lower() == "recent announcements"]
+    aws_included = [d for d in diag if d.included and d.section == "AWS & Cloud"]
+    ra_included = [d for d in aws_included if (d.source or "").strip().lower() == "recent announcements"]
     assert len(ra_included) <= 2
 
 
@@ -129,20 +138,38 @@ def test_top_picks_selection_and_removal_from_sections(tmp_path):
     run_dir = _mk_run_dir(tmp_path)
     now = datetime(2025, 1, 1, tzinfo=timezone.utc)
     items = [
-        {"title": "Cloudflare: deep postmortem", "link": "https://blog.cloudflare.com/postmortem-xyz", "published": now, "source": "Cloudflare Blog", "summary": "postmortem"},
-        {"title": "Kubernetes v1.34 released", "link": "https://kubernetes.io/blog/1-34", "published": now, "source": "Kubernetes Blog", "summary": "release notes"},
-        {"title": "Terraform v1.9 released", "link": "https://www.hashicorp.com/blog/terraform-v1-9", "published": now, "source": "HashiCorp Blog", "summary": "release notes"},
+        FeedEntry(
+            title="Cloudflare: deep postmortem",
+            link="https://blog.cloudflare.com/postmortem-xyz",
+            published=now,
+            source="Cloudflare Blog",
+            summary="postmortem",
+        ),
+        FeedEntry(
+            title="Kubernetes v1.34 released",
+            link="https://kubernetes.io/blog/1-34",
+            published=now,
+            source="Kubernetes Blog",
+            summary="release notes",
+        ),
+        FeedEntry(
+            title="Terraform v1.9 released",
+            link="https://www.hashicorp.com/blog/terraform-v1-9",
+            published=now,
+            source="HashiCorp Blog",
+            summary="release notes",
+        ),
     ]
     md, diag = det.generate(items, run_dir)
     # Top picks section should exist
     assert "## Interesting Reads" in md
     # Kubernetes release should be excluded from top picks (release-like)
-    assert not any(d.get("featured_top_pick") and "Kubernetes" in d.get("title", "") for d in diag)
+    assert not any(d.featured_top_pick and "Kubernetes" in d.title for d in diag)
     # Terraform release is IaC and allowed as a top pick
-    assert any(d.get("featured_top_pick") and "Terraform" in d.get("title", "") for d in diag)
+    assert any(d.featured_top_pick and "Terraform" in d.title for d in diag)
     # Featured items should not appear again in their sections
-    feat_titles = {d.get("title") for d in diag if d.get("featured_top_pick")}
-    repeated = [d for d in diag if d.get("included") and not d.get("featured_top_pick") and d.get("title") in feat_titles]
+    feat_titles = {d.title for d in diag if d.featured_top_pick}
+    repeated = [d for d in diag if d.included and not d.featured_top_pick and d.title in feat_titles]
     assert not repeated
 
 
@@ -151,7 +178,13 @@ def test_markdown_item_format(tmp_path):
     run_dir = _mk_run_dir(tmp_path)
     now = datetime(2025, 1, 1, tzinfo=timezone.utc)
     items = [
-        {"title": "GitHub CLI improvements", "link": "https://github.blog/cli-improvements", "published": now, "source": "GitHub Engineering", "summary": "CLI"}
+        FeedEntry(
+            title="GitHub CLI improvements",
+            link="https://github.blog/cli-improvements",
+            published=now,
+            source="GitHub Engineering",
+            summary="CLI",
+        )
     ]
     md, _ = det.generate(items, run_dir)
     # Expect bold title and Read: URL pattern on a line

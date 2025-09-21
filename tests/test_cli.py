@@ -13,6 +13,7 @@ if "feedparser" not in sys.modules:
 
 from dev_digest import __version__
 from dev_digest.cli import app
+from dev_digest.model import FeedEntry
 
 
 runner = CliRunner()
@@ -37,30 +38,30 @@ def test_run_deterministic_smoke(monkeypatch, tmp_path):
     # Provide fixed recent items
     now = datetime(2025, 1, 2, tzinfo=timezone.utc)
     items = [
-        {
-            "title": "AWS Compute Blog: Lambda now supports Rust runtime GA",
-            "link": "https://aws.amazon.com/blogs/compute/lambda-rust-ga/",
-            "published": now,
-            "source": "AWS Compute Blog",
-            "summary": "AWS Lambda adds GA support for Rust runtime with improved performance.",
-        },
-        {
-            "title": "Cloudflare: Improving allocator performance at scale",
-            "link": "https://blog.cloudflare.com/improving-allocator-performance/",
-            "published": now,
-            "source": "Cloudflare Blog",
-            "summary": "Deep dive into allocator optimizations improving latency and throughput.",
-        },
-        {
-            "title": "Kubernetes v1.34 released",
-            "link": "https://kubernetes.io/blog/announce-1-34/",
-            "published": now,
-            "source": "Kubernetes Blog",
-            "summary": "Release notes for Kubernetes 1.34 with feature updates.",
-        },
+        FeedEntry(
+            title="AWS Compute Blog: Lambda now supports Rust runtime GA",
+            link="https://aws.amazon.com/blogs/compute/lambda-rust-ga/",
+            published=now,
+            source="AWS Compute Blog",
+            summary="AWS Lambda adds GA support for Rust runtime with improved performance.",
+        ),
+        FeedEntry(
+            title="Cloudflare: Improving allocator performance at scale",
+            link="https://blog.cloudflare.com/improving-allocator-performance/",
+            published=now,
+            source="Cloudflare Blog",
+            summary="Deep dive into allocator optimizations improving latency and throughput.",
+        ),
+        FeedEntry(
+            title="Kubernetes v1.34 released",
+            link="https://kubernetes.io/blog/announce-1-34/",
+            published=now,
+            source="Kubernetes Blog",
+            summary="Release notes for Kubernetes 1.34 with feature updates.",
+        ),
     ]
 
-    def fake_fetch_recent(self, feed_urls, now_utc, window_days):
+    def fake_fetch_recent(self, feed_urls, now_utc, window_days, overwrite=False):
         return items
 
     import dev_digest.handler.FeedHandler as FH_mod
@@ -105,20 +106,20 @@ def test_deterministic_merge_near_duplicates(tmp_path):
     run_dir.mkdir(parents=True, exist_ok=True)
 
     items = [
-        {
-            "title": "AWS Lambda performance improvements",
-            "link": "https://aws.amazon.com/blogs/compute/lambda-performance-optimizations/",
-            "published": datetime(2025, 1, 1, tzinfo=timezone.utc),
-            "source": "AWS Compute Blog",
-            "summary": "We improved performance of AWS Lambda cold starts.",
-        },
-        {
-            "title": "Performance improvements for AWS Lambda",
-            "link": "https://aws.amazon.com/blogs/compute/lambda-performance-optimizations-detail/",
-            "published": datetime(2025, 1, 2, tzinfo=timezone.utc),
-            "source": "AWS Compute Blog",
-            "summary": "Deeper dive into Lambda performance improvements.",
-        },
+        FeedEntry(
+            title="AWS Lambda performance improvements",
+            link="https://aws.amazon.com/blogs/compute/lambda-performance-optimizations/",
+            published=datetime(2025, 1, 1, tzinfo=timezone.utc),
+            source="AWS Compute Blog",
+            summary="We improved performance of AWS Lambda cold starts.",
+        ),
+        FeedEntry(
+            title="Performance improvements for AWS Lambda",
+            link="https://aws.amazon.com/blogs/compute/lambda-performance-optimizations-detail/",
+            published=datetime(2025, 1, 2, tzinfo=timezone.utc),
+            source="AWS Compute Blog",
+            summary="Deeper dive into Lambda performance improvements.",
+        ),
     ]
 
     det = DeterministicDigest()
@@ -126,5 +127,5 @@ def test_deterministic_merge_near_duplicates(tmp_path):
 
     assert markdown.startswith("# Dev Digest — Week of 2025-01-01")
     # Expect one merged_duplicate diagnostic entry
-    reasons = [d.get("reason") for d in diagnostics if not d.get("included")]
+    reasons = [d.reason for d in diagnostics if not d.included]
     assert "merged_duplicate" in reasons

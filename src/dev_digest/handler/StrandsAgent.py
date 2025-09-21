@@ -1,12 +1,14 @@
 import json
 import math
 import re
+from dataclasses import asdict
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Tuple, DefaultDict, Set
 from collections import defaultdict
 
 from strands import Agent
 from strands.agent import AgentResult
+from dev_digest.model import FeedEntry
 from dev_digest.utility.constants import (
     PER_SECTION_CAP,
     TOP_PICKS_COUNT,
@@ -144,7 +146,7 @@ class StrandsAgent:
         self.last_usage: Dict[str, Any] | None = None
         self.last_debug_snapshot: Dict[str, Any] | None = None
 
-    def summarize_markdown(self, items: List[Dict[str, Any]]) -> str:
+    def summarize_markdown(self, items: List[FeedEntry]) -> str:
         """
         Generate a deterministic markdown newsletter from items.
         The LLM is used only to produce short summaries as JSON; we handle
@@ -154,7 +156,7 @@ class StrandsAgent:
             return "# Dev Digest — Week of (no data)\n\n_No items found._\n"
 
         # Build a compact, index-addressable list to prompt the model
-        indexed: List[Tuple[int, Dict[str, Any]]] = list(enumerate(items))
+        indexed: List[Tuple[int, Dict[str, Any]]] = [(idx, asdict(item)) for idx, item in enumerate(items)]
         def _safe_str(x: Any) -> str:
             return str(x) if x is not None else ""
 
