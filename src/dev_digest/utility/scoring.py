@@ -166,10 +166,10 @@ def infer_category(title: str, source: str) -> str:
         return "Python"
     if any(k in t for k in ["devops", "cicd", "ci/cd", "sre"]):
         return "DevOps"
-    if any(k in t for k in ["cli", "tool", "github", "git", "terminal"]):
-        return "CLI & Dev Tools"
     if any(k in t for k in ["ai", "ml", "machine learning", "llm"]):
         return "ML & AI"
+    if any(k in t for k in [" cli", "command line", "command-line", "terminal", "shell", "github cli", "aws cli"]):
+        return "CLI & Dev Tools"
     return "Misc"
 
 
@@ -270,6 +270,8 @@ def classify_recent_announcement(candidate: DigestCandidate) -> str:
     if any(term.lower() in title_lower for term in AWS_REGION_TERMS):
         return "low"
 
+    if any(term in title_lower for term in ("security", "firewall", "guardduty", "shield", "threat", "ddos", "protection", "iam", "policy")):
+        return "high"
     if any(term in title_lower for term in DEPRECATION_TERMS):
         return "high"
     if any(term in title_lower for term in GA_TERMS):

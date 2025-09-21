@@ -57,10 +57,10 @@ class DeterministicDigest:
         self.top_picks = top_picks
         self.scoring_profile = get_profile("deterministic")
         self.ra_section_caps: Dict[str, int | None] = {
-            "critical": None,
-            "high": 5,
-            "medium": 5,
-            "low": 3,
+            "critical": 5,
+            "high": 6,
+            "medium": 6,
+            "low": 4,
         }
 
     # ---------- helpers ----------
@@ -215,7 +215,6 @@ class DeterministicDigest:
 
         scored: List[DigestItem] = []
         aws_recent_announcements: List[tuple[DigestItem, str]] = []
-        main_section_ra_severities = {"critical", "high"}
 
         for candidate in candidates:
             freshness = self._freshness_score(candidate.published, run_dt)
@@ -238,19 +237,18 @@ class DeterministicDigest:
             if candidate.source.strip().lower() == "recent announcements":
                 severity = classify_recent_announcement(candidate)
                 aws_recent_announcements.append((item, severity))
-                if severity not in main_section_ra_severities:
-                    diagnostics.append(
-                        self._diagnostic(
-                            candidate=None,
-                            item=item,
-                            included=False,
-                            reason="aws_ra_section",
-                            category="AWS & Cloud",
-                            section=None,
-                            aws_severity=severity,
-                        )
+                diagnostics.append(
+                    self._diagnostic(
+                        candidate=None,
+                        item=item,
+                        included=False,
+                        reason="aws_ra_section",
+                        category="AWS Recent Announcements",
+                        section=None,
+                        aws_severity=severity,
                     )
-                    continue
+                )
+                continue
             scored.append(item)
 
         ra_severity_map = {item.canonical_url: severity for item, severity in aws_recent_announcements}
@@ -379,6 +377,9 @@ class DeterministicDigest:
             ),
             reverse=True,
         )
+
+        high_severity_ra = [it for it, sev in aws_recent_announcements if sev in {"critical", "high"}]
+        flat_sorted.extend(high_severity_ra)
 
         featured: List[DigestItem] = []
         seen_hosts: set[str] = set()

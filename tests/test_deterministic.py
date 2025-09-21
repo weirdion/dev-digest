@@ -282,15 +282,14 @@ def test_aws_recent_announcements_section(tmp_path):
 
     md, diag = det.generate(items, run_dir)
     assert "## AWS Recent Announcements" in md
-    assert "### Critical" in md
+    assert "### High" in md or "### Critical" in md
     assert "Security patch resolves vulnerability" in md
     assert "### Low" in md
     assert "AWS Widget now available in us-east-1" in md
 
-    security_section = next((section for section in md.split("## ") if section.startswith("Security & Alerts")), "")
-    assert "Security patch resolves vulnerability" in security_section
-    aws_cloud_section = next((section for section in md.split("## ") if section.startswith("AWS & Cloud")), "")
-    assert "AWS Widget now available in us-east-1" not in aws_cloud_section
+    sections = {section.split("\n", 1)[0]: section for section in md.split("## ") if section}
+    assert "AWS Widget now available in us-east-1" not in sections.get("AWS & Cloud", "")
+    assert "Security patch resolves vulnerability" not in sections.get("Security & Alerts", "")
 
     # Collect diagnostics for the low-severity announcement
     low_diag = [d for d in diag if d.title.startswith("AWS Widget")]

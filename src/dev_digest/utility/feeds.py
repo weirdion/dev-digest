@@ -51,8 +51,9 @@ ARS_TECHNICAL_BLOGS: List[str] = [
     "https://arstechnica.com/ai/feed/",                              # Ars Technica AI
 ]
 
+# disabled for now - too noisy
 REGISTER_FEEDS: List[str] = [
-    "https://www.theregister.com/software/headlines.atom"            # The Register - All Software
+    # "https://www.theregister.com/software/headlines.atom"            # The Register - All Software
 ]
 
 ALL_FEEDS: List[str] = AWS_FEEDS + \
@@ -61,5 +62,4 @@ ALL_FEEDS: List[str] = AWS_FEEDS + \
                        PYTHON_FEEDS + \
                        BACKEND_FEEDS + \
                        AI_FEEDS + \
-                       ARS_TECHNICAL_BLOGS + \
-                       REGISTER_FEEDS
+                       ARS_TECHNICAL_BLOGS
