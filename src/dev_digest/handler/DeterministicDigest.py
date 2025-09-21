@@ -391,6 +391,8 @@ class DeterministicDigest:
             if src == "recent announcements":
                 continue
             title_lower = item.title.lower()
+            if "(release notes" in title_lower or "(pre-release" in title_lower:
+                continue
             if is_release_like(title_lower) and not any(k in title_lower for k in IAC_HIGH_SIGNAL_TERMS):
                 continue
             if any(k in title_lower for k in ["primer", "beginner", "how to", "tutorial", "introduction", "introduct"]):
@@ -481,19 +483,20 @@ class DeterministicDigest:
 
         if selected_ra:
             lines.append("## AWS Recent Announcements")
+            order_counter = 0
             for severity in severity_order:
                 group = selected_ra.get(severity)
                 if not group:
                     continue
-                lines.append(f"### {severity_labels[severity]}")
-                for pos, item in enumerate(group):
+                label = severity_labels[severity]
+                for item in group:
                     date_str = run_date
                     if isinstance(item.published, datetime):
                         date_str = item.published.date().isoformat()
                     title = item.title.strip()
                     link = item.link
-                    bullet = f"- {date_str} — [{title}]({link})" if link else f"- {date_str} — {title}"
-                    lines.append(bullet)
+                    display = f"- {date_str} — [{title}]({link})" if link else f"- [{label}] {date_str} — {title}"
+                    lines.append(display)
                     diagnostics.append(
                         self._diagnostic(
                             candidate=None,
@@ -502,12 +505,13 @@ class DeterministicDigest:
                             reason="included",
                             category="AWS Recent Announcements",
                             section="AWS Recent Announcements",
-                            position=pos,
+                            position=order_counter,
                             featured=False,
                             aws_severity=severity,
                         )
                     )
-                lines.append("")
+                    order_counter += 1
+            lines.append("")
 
         for section_meta in section_defs:
             arr = sections_map.get(section_meta.slug, [])
