@@ -1,7 +1,6 @@
 import json
 import logging
 from datetime import datetime, timezone
-import shutil
 from pathlib import Path
 from typing import List, Dict, Any
 
@@ -13,16 +12,10 @@ from dev_digest.handler.DeterministicDigest import DeterministicDigest
 from dev_digest.utility.constants import MARDOWN_FOOTER, WINDOW_DAYS, OUT_DIR, DEFAULT_MODEL_KEY
 from dev_digest.utility.feeds import ALL_FEEDS
 from dev_digest.utility.security import validate_feed_urls
-from dev_digest.utility.tools import dedupe_items
+from dev_digest.utility.tools import dedupe_items, filter_ignored_keywords, write_to_file
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("dev-digest")
-
-
-def _json_default(obj):
-    if isinstance(obj, datetime):
-        return obj.isoformat()
-    return str(obj)
 
 
 def run(
@@ -40,19 +33,11 @@ def run(
     load_dotenv()
     now = datetime.now(timezone.utc)
     date_str = now.date().isoformat()
+
     output_dir = Path(OUT_DIR) / date_str
-    # Optionally clear today's folder before regenerating
-    if overwrite and output_dir.exists():
-        # Only remove directories inside OUT_DIR to be safe
-        out_root = Path(OUT_DIR).resolve()
-        try:
-            resolved = output_dir.resolve()
-            if str(resolved).startswith(str(out_root)):
-                shutil.rmtree(resolved)
-        except FileNotFoundError:
-            pass
     output_dir.mkdir(parents=True, exist_ok=True)
     outfile = output_dir.joinpath(f"dev-digest-{date_str}.md")
+
     if is_debug:
         tmp_dir = output_dir.joinpath("tmp")
         tmp_dir.mkdir(parents=True, exist_ok=True)
@@ -62,29 +47,29 @@ def run(
 
     # 1) Fetch feeds (with security validation)
     validated_feeds = validate_feed_urls(ALL_FEEDS)
-    feed_items: List[Dict[str, Any]] = feed_handler.fetch_recent(validated_feeds, now, days)
+    feed_items: List[Dict[str, Any]] = feed_handler.fetch_recent(validated_feeds, now, days, overwrite)
     log.info(f"Found {len(feed_items)} recent items")
     if is_debug:
-        tmp_file = tmp_dir.joinpath("feed.json")
-        tmp_file.write_text(json.dumps(feed_items, default=_json_default, indent=2), encoding="utf-8")
+        write_to_file(tmp_dir, "feed.json", feed_items)
 
     # 2) De-duplicate
     combined = dedupe_items(feed_items)
-    log.info(f"Combined {len(combined)} items")
+    combined_cleaned, filtered = filter_ignored_keywords(combined)
+    log.info(f"Combined and filtered {len(combined_cleaned)} items")
     if is_debug:
-        tmp_file = tmp_dir.joinpath("combined.json")
-        tmp_file.write_text(json.dumps(combined, default=_json_default, indent=2), encoding="utf-8")
+        write_to_file(tmp_dir, "combined.json", combined_cleaned)
+        write_to_file(tmp_dir, "combined-filtered.json", filtered)
 
     # 4) Generate newsletter
     if not ai_generated:
         det = DeterministicDigest()
-        markdown, diagnostics = det.generate(combined, output_dir)
+        markdown, diagnostics = det.generate(combined_cleaned, output_dir)
         if include_footer:
             markdown = markdown.rstrip() + MARDOWN_FOOTER
         out_path = det.write_outputs(output_dir, markdown, diagnostics, debug=is_debug)
         print(f"Newsletter generated (deterministic): {out_path}")
     else:
-        newsletter_content = ai_handler.summarize_markdown(combined)  # type: ignore[union-attr]
+        newsletter_content = ai_handler.summarize_markdown(combined_cleaned)  # type: ignore[union-attr]
         if include_footer:
             newsletter_content = newsletter_content.rstrip() + MARDOWN_FOOTER
         outfile.write_text(newsletter_content, encoding="utf-8")
@@ -104,6 +89,11 @@ def run(
                 tmp_file = tmp_dir.joinpath("metrics.json")
                 from dev_digest.utility.metrics import to_json
                 tmp_file.write_text(to_json(usage), encoding="utf-8")
+        # Persist a debug snapshot of the agent result if available
+        if is_debug:
+            snapshot = getattr(ai_handler, "last_debug_snapshot", None)  # type: ignore[union-attr]
+            if snapshot:
+                write_to_file(tmp_dir, "agent_result.json", snapshot)
 
         print(f"Newsletter generated: {outfile}")
     return 0

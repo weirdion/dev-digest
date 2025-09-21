@@ -142,7 +142,7 @@ class StrandsAgent:
             ),
         )
         self.last_usage: Dict[str, Any] | None = None
-        self.last_usage: Dict[str, Any] | None = None
+        self.last_debug_snapshot: Dict[str, Any] | None = None
 
     def summarize_markdown(self, items: List[Dict[str, Any]]) -> str:
         """
@@ -188,6 +188,39 @@ class StrandsAgent:
             self.last_usage = usage_summary(result, model_key=self.model_key, model_id=self.model_id)
         except Exception:
             self.last_usage = None
+        # Capture a debug snapshot of the result for troubleshooting (JSON-serializable best-effort)
+        def _to_dict_safe(o: Any) -> Any:
+            if o is None:
+                return None
+            if isinstance(o, (str, int, float, bool)):
+                return o
+            if isinstance(o, dict):
+                return o
+            try:
+                if hasattr(o, "to_dict") and callable(getattr(o, "to_dict")):
+                    return o.to_dict()  # type: ignore[attr-defined]
+            except Exception:
+                pass
+            try:
+                if hasattr(o, "model_dump") and callable(getattr(o, "model_dump")):
+                    return o.model_dump()  # type: ignore[attr-defined]
+            except Exception:
+                pass
+            d = getattr(o, "__dict__", None)
+            if isinstance(d, dict):
+                # Drop private/callables
+                return {k: v for k, v in d.items() if not callable(v) and not str(k).startswith("_")}
+            return str(o)
+
+        try:
+            self.last_debug_snapshot = {
+                "message": _to_dict_safe(getattr(result, "message", None)),
+                "usage": _to_dict_safe(getattr(result, "usage", None)),
+                "metrics": _to_dict_safe(getattr(result, "metrics", None)),
+                "raw": _to_dict_safe(getattr(result, "raw", None)),
+            }
+        except Exception:
+            self.last_debug_snapshot = None
         text = ""
         try:
             text = result.message.get("content", [{}])[0].get("text", "")  # type: ignore[index]

@@ -12,13 +12,17 @@ OUT_DIR = "out"
 MARDOWN_FOOTER = "\n\n This dev digest newsletter is generated with [weirdion/dev-digest](https://github.com/weirdion/dev-digest)\n"
 
 KEYWORDS_TO_IGNORE = [
-    "end-of-support",
     "training-and-certification",
     "govcloud",
     "partner network",
     "regional launches",
     "The Real Python Podcast",
     "more regions",
+    "gartner",
+    "aws weekly roundup",
+    "extended support",
+    "now available in",
+    "outposts"
 ]
 
 # Model profiles and pricing (USD per 1K tokens)

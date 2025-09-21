@@ -29,14 +29,14 @@ KUBERNETES_FEEDS = [
 
 PYTHON_FEEDS: List[str] = [
     "https://blog.python.org/feeds/posts/default",                   # Python Insider (release notes)
-#    "https://realpython.com/atom.xml",                               # Real Python blog
+    "https://realpython.com/atom.xml",                               # Real Python blog
 #    "https://pyfound.blogspot.com/feeds/posts/default",              # PSF (Foundation) Blog
 ]
 
 BACKEND_FEEDS: List[str] = [
     "https://www.uber.com/blog/engineering/rss/",                    # Uber Engineering
     "https://githubengineering.com/atom.xml",                        # GitHub Engineering
-    "https://thenewstack.io/feed/",                                  # The New Stack (cloud-native)
+    # "https://thenewstack.io/feed/",                                  # The New Stack (cloud-native)
     "https://blog.cloudflare.com/feed/",                             # Cloudflare engineering/product
 ]
 
@@ -51,10 +51,15 @@ ARS_TECHNICAL_BLOGS: List[str] = [
     "https://arstechnica.com/ai/feed/",                              # Ars Technica AI
 ]
 
+REGISTER_FEEDS: List[str] = [
+    "https://www.theregister.com/software/headlines.atom"            # The Register - All Software
+]
+
 ALL_FEEDS: List[str] = AWS_FEEDS + \
                        IAC_FEEDS + \
                        KUBERNETES_FEEDS + \
                        PYTHON_FEEDS + \
                        BACKEND_FEEDS + \
                        AI_FEEDS + \
-                       ARS_TECHNICAL_BLOGS
+                       ARS_TECHNICAL_BLOGS + \
+                       REGISTER_FEEDS

@@ -1,7 +1,15 @@
+import json
 import re
-from datetime import timedelta
+from datetime import datetime, timedelta
+from pathlib import Path
 from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
 
+from dev_digest.utility.constants import KEYWORDS_TO_IGNORE
+
+def _json_default(obj):
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    return str(obj)
 
 
 def normalize_text(s: str) -> str:
@@ -50,3 +58,37 @@ def dedupe_items(items):
         seen_titles.add(title_norm)
         unique.append(it)
     return unique
+
+def filter_ignored_keywords(items):
+    """
+    Filters items by using KEYWORDS_IGNORE list.
+    Each item is a dict with keys: title, link, published (datetime|None), source.
+    """
+    ignore_lc = [k.lower() for k in KEYWORDS_TO_IGNORE]
+    results = []
+    filtered = []
+    for item in items:
+        title = item.get("title", "")
+        if not title:
+            filtered.append(item)
+            continue
+
+        # Filter by keywords to ignore
+        tl = title.lower()
+        if any(k in tl for k in ignore_lc):
+            filtered.append(item)
+            continue
+
+        results.append(item)
+    return results, filtered
+
+def write_to_file(base_dir: Path, file_name: str, items: list):
+    """
+    Writes items to a file in JSON format.
+    Each item is a dict with keys: title, link, published (datetime|None), source.
+    """
+    tmp_file = base_dir.joinpath(file_name)
+    tmp_file.write_text(
+        json.dumps(items, default=_json_default, indent=2),
+        encoding="utf-8"
+    )

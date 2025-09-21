@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Set
 from dev_digest.utility.constants import MODEL_PROFILES
 
 
@@ -10,22 +10,82 @@ def extract_usage(agent_result: Any) -> Dict[str, int]:
     """
     in_tok = out_tok = total = 0
 
-    # Common places to look
-    candidates: Tuple[Optional[dict], ...] = (
+    def _coerce_int(x: Any) -> int:
+        try:
+            return int(x)
+        except Exception:
+            try:
+                return int(float(x))
+            except Exception:
+                return 0
+
+    # Recursive deep search for usage-like fields in nested dict/list structures
+    def _deep_find_usage(obj: Any, visited: Set[int] | None = None, depth: int = 0) -> Tuple[int, int, int]:
+        if visited is None:
+            visited = set()
+        if obj is None:
+            return 0, 0, 0
+        oid = id(obj)
+        if oid in visited:
+            return 0, 0, 0
+        visited.add(oid)
+        if depth > 4:
+            return 0, 0, 0
+
+        # If object exposes a dict-like representation, use it
+        if not isinstance(obj, (dict, list, tuple)):
+            for meth in ("to_dict", "model_dump"):
+                try:
+                    fn = getattr(obj, meth, None)
+                    if callable(fn):
+                        obj = fn()
+                        break
+                except Exception:
+                    pass
+            else:
+                d = getattr(obj, "__dict__", None)
+                if isinstance(d, dict):
+                    obj = d
+
+        if isinstance(obj, dict):
+            # Direct keys
+            in_v = obj.get("input_tokens") or obj.get("prompt_tokens")
+            out_v = obj.get("output_tokens") or obj.get("completion_tokens")
+            tot_v = obj.get("total_tokens")
+            if in_v or out_v or tot_v:
+                return _coerce_int(in_v or 0), _coerce_int(out_v or 0), _coerce_int(tot_v or 0)
+            # Common nested containers like {"usage": {...}} or {"response": {"usage": {...}}}
+            for k in ("usage", "metrics", "response", "message", "raw"):
+                v = obj.get(k)
+                a, b, c = _deep_find_usage(v, visited, depth + 1)
+                if a or b or c:
+                    return a, b, c
+            # Fallback: scan all values
+            for v in obj.values():
+                a, b, c = _deep_find_usage(v, visited, depth + 1)
+                if a or b or c:
+                    return a, b, c
+            return 0, 0, 0
+        if isinstance(obj, (list, tuple)):
+            for v in obj:
+                a, b, c = _deep_find_usage(v, visited, depth + 1)
+                if a or b or c:
+                    return a, b, c
+            return 0, 0, 0
+        return 0, 0, 0
+
+    # Search in common top-level attributes first, then the whole object
+    for cand in (
         getattr(agent_result, "usage", None),
         getattr(agent_result, "metrics", None),
         getattr(agent_result, "raw", None),
         getattr(agent_result, "message", None),
-        None,
-    )
-
-    for obj in candidates:
-        if not isinstance(obj, dict):
-            continue
-        # Popular key variants
-        in_tok = in_tok or int(obj.get("input_tokens") or obj.get("prompt_tokens") or 0)
-        out_tok = out_tok or int(obj.get("output_tokens") or obj.get("completion_tokens") or 0)
-        total = total or int(obj.get("total_tokens") or 0)
+        agent_result,
+    ):
+        a, b, c = _deep_find_usage(cand)
+        in_tok = in_tok or a
+        out_tok = out_tok or b
+        total = total or c
         if in_tok or out_tok or total:
             break
 
