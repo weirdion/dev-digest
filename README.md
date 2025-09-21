@@ -1,7 +1,10 @@
 # dev-digest
 
-Newsletter generator (optionally AI-powered) that fetches RSS/Atom feeds, discovers additional content via agentic search,
+Newsletter generator (optionally AI-powered) that fetches RSS/Atom feeds, discovers additional content via heuristic and/or agentic search,
 deduplicates articles, and outputs a curated weekly digest in Markdown.
+
+Created to filter out noise to keep myself up to date on recent announcements and blogs.
+Publicly consumable feed available here - https://weirdion.substack.com/s/developer-newsletter
 
 ## Features
 
