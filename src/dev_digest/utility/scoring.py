@@ -195,6 +195,9 @@ def compute_heuristic_score(candidate: DigestCandidate, config: HeuristicConfig)
         score += config.government
     score += _iac_release_bonus(title_lower, config.iac_release)
 
+    if any(term in title_lower for term in ("ec2", "instance", "compute")):
+        score += 6
+
     canonical = (getattr(candidate, "canonical_url", "") or "").lower()
     if "github.com/hashicorp/terraform/releases/tag/" in canonical:
         score += 12
@@ -254,14 +257,16 @@ def classify_recent_announcement(candidate: DigestCandidate) -> str:
     if any(term.lower() in title_lower for term in AWS_REGION_TERMS):
         return "low"
 
-    if any(term in title_lower for term in ("security", "firewall", "guardduty", "shield", "threat", "ddos", "protection", "iam", "policy")):
+    if any(term in title_lower for term in ("security", "firewall", "guardduty", "shield", "threat", "ddos", "protection", "iam", "policy", "ec2", "instance", "compute")):
         return "high"
-    if any(term in title_lower for term in ("terraform", "aws cdk", "cdk", "cloudformation", "sdk", "cli", "developer tools", "devops", "infrastructure")):
+    if any(term in title_lower for term in ("terraform", "aws cdk", "cdk", "cloudformation")):
         return "high"
     if any(term in title_lower for term in DEPRECATION_TERMS):
         return "high"
     if any(term in title_lower for term in GA_TERMS):
-        return "high"
+        if any(term in title_lower for term in ("ec2", "redshift", "network firewall", "iac", "terraform", "cdk")):
+            return "high"
+        return "medium"
     if any(term in title_lower for term in PREVIEW_TERMS):
         return "medium"
 

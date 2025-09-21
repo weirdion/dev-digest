@@ -88,7 +88,7 @@ def test_classify_recent_announcement():
         published=None,
     )
     assert classify_recent_announcement(critical) == "critical"
-    assert classify_recent_announcement(high) == "high"
+    assert classify_recent_announcement(high) == "medium"
     assert classify_recent_announcement(medium) == "medium"
     assert classify_recent_announcement(low) == "low"
 
