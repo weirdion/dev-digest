@@ -122,7 +122,7 @@ def test_low_signal_recent_announcements_filtered(tmp_path):
     md, diag = det.generate(items, run_dir)
 
     assert "## AWS Recent Announcements" in md
-    assert "### Low" in md
+    assert "[Low]" in md
     assert "service quotas update" in md
 
     aws_cloud_section = next((section for section in md.split("## ") if section.startswith("AWS & Cloud")), "")
@@ -282,9 +282,9 @@ def test_aws_recent_announcements_section(tmp_path):
 
     md, diag = det.generate(items, run_dir)
     assert "## AWS Recent Announcements" in md
-    assert "### High" in md or "### Critical" in md
+    assert "[High]" in md or "[Critical]" in md
     assert "Security patch resolves vulnerability" in md
-    assert "### Low" in md
+    assert "[Low]" in md
     assert "AWS Widget now available in us-east-1" in md
 
     sections = {section.split("\n", 1)[0]: section for section in md.split("## ") if section}

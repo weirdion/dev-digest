@@ -16,6 +16,8 @@ class Section:
     source_terms: Tuple[str, ...] = ()
     host_terms: Tuple[str, ...] = ()
     path_contains: Tuple[str, ...] = ()
+    exclude_hosts: Tuple[str, ...] = ()
+    exclude_path_contains: Tuple[str, ...] = ()
 
     def matches(self, *, title: str, source: str, link: str, summary: str = "") -> bool:
         text = f"{title} {summary}".lower()
@@ -23,6 +25,11 @@ class Section:
         parsed = urlparse(link or "")
         host_lower = (parsed.netloc or "").lower()
         path_lower = (parsed.path or "").lower()
+
+        if self.exclude_hosts and any(term in host_lower for term in self.exclude_hosts):
+            return False
+        if self.exclude_path_contains and any(token in path_lower for token in self.exclude_path_contains):
+            return False
 
         if self.source_terms and any(term in source_lower for term in self.source_terms):
             return True
@@ -60,6 +67,7 @@ SECTIONS: Tuple[Section, ...] = (
             "shield",
         ),
         source_terms=("security", "cisa", "nessus"),
+        exclude_path_contains=("/blogs/machine-learning/",),
     ),
     Section(
         slug="infrastructure",

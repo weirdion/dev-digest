@@ -495,7 +495,10 @@ class DeterministicDigest:
                         date_str = item.published.date().isoformat()
                     title = item.title.strip()
                     link = item.link
-                    display = f"- {date_str} — [{title}]({link})" if link else f"- [{label}] {date_str} — {title}"
+                    if link:
+                        display = f"- [{label}] {date_str} — [{title}]({link})"
+                    else:
+                        display = f"- [{label}] {date_str} — {title}"
                     lines.append(display)
                     diagnostics.append(
                         self._diagnostic(
