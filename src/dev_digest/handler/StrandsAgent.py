@@ -14,24 +14,14 @@ from dev_digest.utility.constants import (
     MAX_STORIES_TOTAL,
     MODEL_PROFILES,
     DEFAULT_MODEL_KEY,
+    IAC_HIGH_SIGNAL_TERMS,
 )
 from dev_digest.utility.metrics import usage_summary
 from dev_digest.utility.tools import canonicalize_url
 from dev_digest.utility.security import strip_html_to_text
-from dev_digest.utility.scoring import get_profile, infer_category, score_candidate
-
-
-SECTION_ORDER = [
-    "Security & Alerts",
-    "AWS & Cloud",
-    "ML & AI",
-    "Infrastructure as Code",
-    "DevOps",
-    "Python",
-    "Kubernetes/Containers",
-    "CLI & Dev Tools",
-    "Misc",
-]
+from dev_digest.utility.scoring import get_profile, score_candidate
+from dev_digest.utility.sections import ordered_sections, resolve_section
+from dev_digest.utility.filters import should_exclude_link
 
 
 def _clip_words(text: str, max_words: int) -> str:
@@ -67,11 +57,11 @@ def _render_markdown(sections: Dict[str, List[Dict[str, Any]]]) -> str:
             lines.append(f"- {head}{date_part}: {summary}.{read_more}")
         lines.append("")
 
-    for section in SECTION_ORDER:
-        items = sections.get(section) or []
+    for section_meta in ordered_sections():
+        items = sections.get(section_meta.slug) or []
         if not items:
             continue
-        lines.append(f"## {section}")
+        lines.append(f"## {section_meta.title}")
         for it in items:
             title = it.get("title", "").strip()
             source = it.get("source", "").strip()
@@ -119,11 +109,12 @@ class StrandsAgent:
         The LLM is used only to produce short summaries as JSON; we handle
         categorization and formatting in code for stability.
         """
-        if not items:
+        filtered_items = [item for item in items if not should_exclude_link(item.link)]
+        if not filtered_items:
             return "# Dev Digest — Week of (no data)\n\n_No items found._\n"
 
         # Build a compact, index-addressable list to prompt the model
-        indexed: List[Tuple[int, Dict[str, Any]]] = [(idx, asdict(item)) for idx, item in enumerate(items)]
+        indexed: List[Tuple[int, Dict[str, Any]]] = [(idx, asdict(item)) for idx, item in enumerate(filtered_items)]
         def _safe_str(x: Any) -> str:
             return str(x) if x is not None else ""
 
@@ -234,8 +225,9 @@ class StrandsAgent:
             return 0.0
 
         # Build sections deterministically
-        sections: DefaultDict[str, List[Dict[str, Any]]] = defaultdict(list)
+        sections_map: DefaultDict[str, List[Dict[str, Any]]] = defaultdict(list)
         profile = get_profile("ai")
+        section_defs = ordered_sections()
         for idx, original in indexed:
             enriched = dict(original)
             raw_summary = original.get("summary") or ""
@@ -259,9 +251,9 @@ class StrandsAgent:
             enriched["model_score"] = model_score_val
             enriched["combined_score"] = combined_score
             enriched["score"] = combined_score
-            category = infer_category(candidate.title, candidate.source)
-            enriched["category"] = category
-            sections[category].append(enriched)
+            section_meta = resolve_section(candidate.title, candidate.source, link, short_summary)
+            enriched["category"] = section_meta.title
+            sections_map[section_meta.slug].append(enriched)
 
         # Sort by score then date, merge near-duplicate stories per section, then enforce per-section cap
         def _topic_tokens(title: str) -> set[str]:
@@ -302,37 +294,40 @@ class StrandsAgent:
                 taken[i] = True
             return merged
 
-        for cat, arr in sections.items():
+        for section_meta in section_defs:
+            arr = sections_map.get(section_meta.slug, [])
             arr.sort(key=lambda x: (float(x.get("score", 0.0)), _ts(x.get("published"))), reverse=True)
             arr = _merge_near_duplicates(arr)
-            if PER_SECTION_CAP and len(arr) > PER_SECTION_CAP:
-                arr = arr[:PER_SECTION_CAP]
-            sections[cat] = arr
+            cap = section_meta.max_items
+            if PER_SECTION_CAP:
+                cap = min(cap, PER_SECTION_CAP)
+            sections_map[section_meta.slug] = arr[:cap]
 
         # Enforce global cap by trimming lowest-score, oldest items across sections
         if MAX_STORIES_TOTAL:
-            total = sum(len(v) for v in sections.values())
+            total = sum(len(v) for v in sections_map.values())
             if total > MAX_STORIES_TOTAL:
                 # Build candidate list (score asc, date asc)
                 candidates: List[Tuple[float, float, str, int]] = []
-                for cat, arr in sections.items():
+                for section_meta in section_defs:
+                    arr = sections_map.get(section_meta.slug, [])
                     for i, it in enumerate(arr):
-                        candidates.append((float(it.get("score", 0.0)), _ts(it.get("published")), cat, i))
+                        candidates.append((float(it.get("score", 0.0)), _ts(it.get("published")), section_meta.slug, i))
                 candidates.sort(key=lambda x: (x[0], x[1]))
                 to_remove = total - MAX_STORIES_TOTAL
-                removed_by_cat: DefaultDict[str, set[int]] = defaultdict(set)
-                for _, _, cat, i in candidates:
+                removed_by_slug: DefaultDict[str, set[int]] = defaultdict(set)
+                for _, _, slug, i in candidates:
                     if to_remove <= 0:
                         break
-                    if i in removed_by_cat[cat]:
+                    if i in removed_by_slug[slug]:
                         continue
-                    removed_by_cat[cat].add(i)
+                    removed_by_slug[slug].add(i)
                     to_remove -= 1
-                for cat, idxs in removed_by_cat.items():
-                    sections[cat] = [it for j, it in enumerate(sections[cat]) if j not in idxs]
+                for slug, idxs in removed_by_slug.items():
+                    sections_map[slug] = [it for j, it in enumerate(sections_map.get(slug, [])) if j not in idxs]
 
         # Compute top picks with host diversity, exclude low-signal & release posts, and remove duplicates from sections
-        flat_items: List[Dict[str, Any]] = [it for arr in sections.values() for it in arr]
+        flat_items: List[Dict[str, Any]] = [it for slug, arr in sections_map.items() for it in arr if slug != "TOP_PICKS"]
         def _is_release_like(title_l: str, source_l: str) -> bool:
             if "kubernetes v" in title_l:
                 return True
@@ -370,12 +365,14 @@ class StrandsAgent:
             if len(featured) >= max(1, TOP_PICKS_COUNT):
                 break
         if featured:
-            sections["TOP_PICKS"] = featured
+            sections_map["TOP_PICKS"] = featured
             # Exclude featured items from their sections to avoid duplicates
             feat_keys = {canonicalize_url((it.get("link") or it.get("url") or "")) for it in featured}
-            for cat, arr in list(sections.items()):
-                if cat == "TOP_PICKS":
+            for slug, arr in list(sections_map.items()):
+                if slug == "TOP_PICKS":
                     continue
-                sections[cat] = [it for it in arr if canonicalize_url((it.get("link") or it.get("url") or "")) not in feat_keys]
+                sections_map[slug] = [
+                    it for it in arr if canonicalize_url((it.get("link") or it.get("url") or "")) not in feat_keys
+                ]
 
-        return _render_markdown(sections)
+        return _render_markdown(sections_map)

@@ -46,10 +46,10 @@ def test_heuristic_score_signals():
 
 def test_infer_category_mapping():
     assert infer_category("CVE-2024-1234 discovered", "") == "Security & Alerts"
-    assert infer_category("Terraform v1.9 released", "") == "Infrastructure as Code"
+    assert infer_category("Terraform v1.9 released", "") == "Infrastructure & Tooling"
     assert infer_category("Kubernetes tips", "") == "Kubernetes/Containers"
-    assert infer_category("Python typing improvements", "") == "Python"
-    assert infer_category("New CLI tool", "") == "CLI & Dev Tools"
+    assert infer_category("Python typing improvements", "") == "Dev Tools & Languages"
+    assert infer_category("New CLI tool", "") == "Infrastructure & Tooling"
     assert infer_category("ML perf", "") == "ML & AI"
     assert infer_category("AWS feature", "") == "AWS & Cloud"
 
@@ -321,3 +321,30 @@ def test_combined_score_prefers_recent_items(tmp_path):
     included = {d.title: d for d in diag if d.included}
     assert included["GA release for Widget"].combined_score > included["GA release for Gizmo"].combined_score
     assert included["GA release for Widget"].model_score >= included["GA release for Gizmo"].model_score
+
+
+def test_realpython_quiz_filtered(tmp_path):
+    det = DeterministicDigest()
+    run_dir = _mk_run_dir(tmp_path)
+    now = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    items = [
+        FeedEntry(
+            title="Quiz: Python packaging essentials",
+            link="https://realpython.com/quizzes/python-packaging/",
+            published=now,
+            source="Real Python",
+            summary="Test your knowledge of packaging",
+        ),
+        FeedEntry(
+            title="Python 3.14.0rc3 is go!",
+            link="https://pythoninsider.blogspot.com/2025/09/python-3140rc3-is-go.html",
+            published=now,
+            source="Python Insider",
+            summary="Release candidate details",
+        ),
+    ]
+    md, diag = det.generate(items, run_dir)
+    assert "Quiz: Python packaging essentials" not in md
+    reasons = [d.reason for d in diag if d.title.startswith("Quiz:")]
+    assert "path_filter" in reasons
+    assert "Python 3.14.0rc3" in md

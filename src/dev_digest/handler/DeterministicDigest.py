@@ -21,22 +21,10 @@ from dev_digest.utility.tools import canonicalize_url, normalize_text
 from dev_digest.utility.scoring import (
     classify_recent_announcement,
     get_profile,
-    infer_category,
     score_candidate,
 )
-
-
-SECTION_ORDER = [
-    "Security & Alerts",
-    "AWS & Cloud",
-    "ML & AI",
-    "Infrastructure as Code",
-    "DevOps",
-    "Python",
-    "Kubernetes/Containers",
-    "CLI & Dev Tools",
-    "Misc",
-]
+from dev_digest.utility.sections import ordered_sections, resolve_section
+from dev_digest.utility.filters import should_exclude_link
 
 FRESHNESS_WINDOW_DAYS = 14
 
@@ -164,6 +152,7 @@ class DeterministicDigest:
         diagnostics: List[DiagnosticRecord] = []
         candidates: List[DigestCandidate] = []
         run_dt = datetime.fromisoformat(run_date)
+        section_defs = ordered_sections()
 
         for raw in items:
             title = normalize_text(strip_html_to_text(raw.title))
@@ -184,6 +173,7 @@ class DeterministicDigest:
             )
 
             tl = title.lower()
+
             if not title and not canon:
                 diagnostics.append(
                     self._diagnostic(
@@ -211,6 +201,18 @@ class DeterministicDigest:
             seen_urls.add(canon)
             seen_titles.add(title_key)
 
+            if should_exclude_link(link):
+                diagnostics.append(
+                    self._diagnostic(
+                        candidate=candidate,
+                        item=None,
+                        included=False,
+                        reason="path_filter",
+                        section=None,
+                    )
+                )
+                continue
+
             candidates.append(candidate)
 
         scored: List[DigestItem] = []
@@ -224,11 +226,11 @@ class DeterministicDigest:
                 model_score=freshness,
             )
             short_summary = self._short_summary(candidate.summary, 30)
-            category = infer_category(candidate.title, candidate.source)
+            section_meta = resolve_section(candidate.title, candidate.source, candidate.link, candidate.summary)
             item = DigestItem.from_candidate(
                 candidate,
                 short_summary=short_summary,
-                category=category,
+                category=section_meta.title,
                 heuristic_score=heuristic,
                 model_score=model_score,
                 combined_score=combined,
@@ -253,11 +255,13 @@ class DeterministicDigest:
 
         ra_severity_map = {item.canonical_url: severity for item, severity in aws_recent_announcements}
 
-        sections: DefaultDict[str, List[DigestItem]] = defaultdict(list)
+        sections_map: DefaultDict[str, List[DigestItem]] = defaultdict(list)
         for item in scored:
-            sections[item.category].append(item)
+            section_slug = resolve_section(item.title, item.source, item.link, item.summary).slug
+            sections_map[section_slug].append(item)
 
-        for cat, arr in list(sections.items()):
+        for section_meta in ordered_sections():
+            arr = sections_map.get(section_meta.slug, [])
             arr.sort(key=lambda x: (x.combined_score, self._ts(x.published), x.canonical_url), reverse=True)
             taken = [False] * len(arr)
             merged: List[DigestItem] = []
@@ -289,7 +293,7 @@ class DeterministicDigest:
                                 item=other,
                                 included=False,
                                 reason="merged_duplicate",
-                                category=cat,
+                                category=section_meta.title,
                                 section=None,
                             )
                         )
@@ -298,50 +302,33 @@ class DeterministicDigest:
                         taken[j] = True
                 merged.append(best)
                 taken[idx] = True
-            if len(merged) > self.per_section_cap:
-                for item in merged[self.per_section_cap:]:
+            cap = section_meta.max_items
+            if self.per_section_cap:
+                cap = min(cap, self.per_section_cap)
+            if len(merged) > cap:
+                for item in merged[cap:]:
                     diagnostics.append(
                         self._diagnostic(
                             candidate=None,
                             item=item,
                             included=False,
                             reason="per_section_cap",
-                            category=cat,
+                            category=section_meta.title,
                             section=None,
                         )
                     )
-                merged = merged[: self.per_section_cap]
-            sections[cat] = merged
+                merged = merged[:cap]
+            sections_map[section_meta.slug] = merged
 
-        aws_items = sections.get("AWS & Cloud", [])
-        if aws_items:
-            non_ra = [it for it in aws_items if it.source.strip().lower() != "recent announcements"]
-            ra_items = [it for it in aws_items if it.source.strip().lower() == "recent announcements"]
-            max_ra = 2
-            capped = non_ra + ra_items[:max_ra]
-            for item in ra_items[max_ra:]:
-                diagnostics.append(
-                    self._diagnostic(
-                        candidate=None,
-                        item=item,
-                        included=False,
-                        reason="ra_microcap",
-                        category="AWS & Cloud",
-                        section=None,
-                        aws_severity=ra_severity_map.get(item.canonical_url),
-                    )
-                )
-            sections["AWS & Cloud"] = capped[: self.per_section_cap]
-
-        all_items = [it for cat in SECTION_ORDER for it in sections.get(cat, [])]
+        all_items = [it for section_meta in section_defs for it in sections_map.get(section_meta.slug, [])]
         if len(all_items) > self.max_total:
             sorted_items = sorted(all_items, key=lambda x: (x.combined_score, self._ts(x.published)))
             keep_ids = {id(item) for item in sorted_items[-self.max_total:]}
             new_sections: DefaultDict[str, List[DigestItem]] = defaultdict(list)
-            for cat in SECTION_ORDER:
-                for item in sections.get(cat, []):
+            for section_meta in section_defs:
+                for item in sections_map.get(section_meta.slug, []):
                     if id(item) in keep_ids:
-                        new_sections[cat].append(item)
+                        new_sections[section_meta.slug].append(item)
                     else:
                         diagnostics.append(
                             self._diagnostic(
@@ -349,11 +336,11 @@ class DeterministicDigest:
                                 item=item,
                                 included=False,
                                 reason="global_cap",
-                                category=cat,
+                                category=section_meta.title,
                                 section=None,
                             )
                         )
-            sections = new_sections
+            sections_map = new_sections
 
         def is_release_like(title_l: str) -> bool:
             return bool(
@@ -365,7 +352,7 @@ class DeterministicDigest:
             )
 
         flat_sorted = sorted(
-            [it for cat in SECTION_ORDER for it in sections.get(cat, [])],
+            [it for section_meta in section_defs for it in sections_map.get(section_meta.slug, [])],
             key=lambda it: (
                 it.combined_score,
                 (
@@ -401,8 +388,11 @@ class DeterministicDigest:
                 break
 
         featured_canons = {it.canonical_url for it in featured}
-        for cat in list(sections.keys()):
-            sections[cat] = [it for it in sections[cat] if it.canonical_url not in featured_canons]
+        for section_meta in section_defs:
+            if section_meta.slug in sections_map:
+                sections_map[section_meta.slug] = [
+                    item for item in sections_map[section_meta.slug] if item.canonical_url not in featured_canons
+                ]
 
         lines: List[str] = []
         lines.append(f"# Dev Digest — Week of {run_date}")
@@ -503,11 +493,11 @@ class DeterministicDigest:
                     )
                 lines.append("")
 
-        for cat in SECTION_ORDER:
-            arr = sections.get(cat, [])
+        for section_meta in section_defs:
+            arr = sections_map.get(section_meta.slug, [])
             if not arr:
                 continue
-            lines.append(f"## {cat}")
+            lines.append(f"## {section_meta.title}")
             for pos, item in enumerate(arr):
                 title = item.title.strip()
                 source = item.source.strip()
@@ -530,8 +520,8 @@ class DeterministicDigest:
                         item=item,
                         included=True,
                         reason="included",
-                        category=cat,
-                        section=cat,
+                        category=section_meta.title,
+                        section=section_meta.title,
                         position=pos,
                         featured=False,
                         aws_severity=ra_severity_map.get(item.canonical_url),

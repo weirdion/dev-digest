@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Dict
 
 from dev_digest.model import DigestCandidate
+from dev_digest.utility.sections import resolve_section
 from dev_digest.utility.constants import (
     AWS_REGION_TERMS,
     AWS_WHATS_NEW_LOW_SIGNAL,
@@ -146,31 +147,8 @@ def get_profile(name: str) -> ScoreProfile:
     return SCORING_PROFILES[name]
 
 
-def infer_category(title: str, source: str) -> str:
-    t = (title or "").lower()
-    s = (source or "").lower()
-    if (
-        "security" in s
-        or "security" in t
-        or "cve" in t
-        or any(k in t for k in ["honeypot", "malware", "ransomware", "exploit", "vulnerability", "attack", "zero-day", "0-day"])
-    ):
-        return "Security & Alerts"
-    if "aws" in s or "aws" in t or "cloud" in t:
-        return "AWS & Cloud"
-    if any(k in t for k in ["terraform", "pulumi", "cdk", "infrastructure as code"]):
-        return "Infrastructure as Code"
-    if any(k in t for k in ["kubernetes", "k8s", "helm", "istio", "cncf", "container"]):
-        return "Kubernetes/Containers"
-    if "python" in s or "python" in t:
-        return "Python"
-    if any(k in t for k in ["devops", "cicd", "ci/cd", "sre"]):
-        return "DevOps"
-    if any(k in t for k in ["ai", "ml", "machine learning", "llm"]):
-        return "ML & AI"
-    if any(k in t for k in [" cli", "command line", "command-line", "terminal", "shell", "github cli", "aws cli"]):
-        return "CLI & Dev Tools"
-    return "Misc"
+def infer_category(title: str, source: str, link: str = "", summary: str = "") -> str:
+    return resolve_section(title, source, link, summary).title
 
 
 def _iac_release_bonus(title_lower: str, weight: float) -> float:
@@ -271,6 +249,8 @@ def classify_recent_announcement(candidate: DigestCandidate) -> str:
         return "low"
 
     if any(term in title_lower for term in ("security", "firewall", "guardduty", "shield", "threat", "ddos", "protection", "iam", "policy")):
+        return "high"
+    if any(term in title_lower for term in ("terraform", "aws cdk", "cdk", "cloudformation", "sdk", "cli", "developer tools", "devops", "infrastructure")):
         return "high"
     if any(term in title_lower for term in DEPRECATION_TERMS):
         return "high"

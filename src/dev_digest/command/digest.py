@@ -37,8 +37,8 @@ def run(
 
     output_dir = Path(OUT_DIR) / date_str
     if overwrite and output_dir.exists():
-        log.info(f"Moving existing output directory to _backup: {output_dir} -> {output_dir.with_suffix("_bak")}")
-        output_dir.rename(output_dir.with_suffix("_backup"))
+        log.info(f"Moving existing output directory to _backup: {output_dir} -> {output_dir.with_suffix(".backup")}")
+        output_dir.rename(output_dir.with_suffix(".backup"))
 
     output_dir.mkdir(parents=True, exist_ok=True)
     outfile = output_dir.joinpath(f"dev-digest-{date_str}.md")
