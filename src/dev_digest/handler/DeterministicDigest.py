@@ -483,23 +483,26 @@ class DeterministicDigest:
 
         if selected_ra:
             lines.append("## AWS Recent Announcements")
+            impact_labels = {
+                "critical": "Critical Impact",
+                "high": "High Impact",
+                "medium": "Medium Impact",
+                "low": "Low Impact",
+            }
             order_counter = 0
             for severity in severity_order:
                 group = selected_ra.get(severity)
                 if not group:
                     continue
-                label = severity_labels[severity]
+                lines.append(f"### {impact_labels[severity]}")
                 for item in group:
                     date_str = run_date
                     if isinstance(item.published, datetime):
                         date_str = item.published.date().isoformat()
                     title = item.title.strip()
                     link = item.link
-                    if link:
-                        display = f"- [{label}] {date_str} — [{title}]({link})"
-                    else:
-                        display = f"- [{label}] {date_str} — {title}"
-                    lines.append(display)
+                    bullet = f"- {date_str} — [{title}]({link})" if link else f"- {date_str} — {title}"
+                    lines.append(bullet)
                     diagnostics.append(
                         self._diagnostic(
                             candidate=None,
@@ -514,7 +517,7 @@ class DeterministicDigest:
                         )
                     )
                     order_counter += 1
-            lines.append("")
+                lines.append("")
 
         for section_meta in section_defs:
             arr = sections_map.get(section_meta.slug, [])

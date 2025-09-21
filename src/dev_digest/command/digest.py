@@ -11,7 +11,7 @@ from dev_digest.handler.FeedHandler import FeedHandler
 from dev_digest.handler.StrandsAgent import StrandsAgent
 from dev_digest.handler.DeterministicDigest import DeterministicDigest
 from dev_digest.model import FeedEntry
-from dev_digest.utility.constants import MARDOWN_FOOTER, WINDOW_DAYS, OUT_DIR, DEFAULT_MODEL_KEY
+from dev_digest.utility.constants import MARKDOWN_FOOTER, WINDOW_DAYS, OUT_DIR, DEFAULT_MODEL_KEY
 from dev_digest.utility.feeds import ALL_FEEDS
 from dev_digest.utility.security import validate_feed_urls
 from dev_digest.utility.tools import dedupe_items, filter_ignored_keywords, write_to_file
@@ -75,13 +75,13 @@ def run(
         det = DeterministicDigest()
         markdown, diagnostics = det.generate(combined_cleaned, output_dir)
         if include_footer:
-            markdown = markdown.rstrip() + MARDOWN_FOOTER
+            markdown = markdown.rstrip() + MARKDOWN_FOOTER
         out_path = det.write_outputs(output_dir, markdown, diagnostics, debug=is_debug)
         print(f"Newsletter generated (deterministic): {out_path}")
     else:
         newsletter_content = ai_handler.summarize_markdown(combined_cleaned)  # type: ignore[union-attr]
         if include_footer:
-            newsletter_content = newsletter_content.rstrip() + MARDOWN_FOOTER
+            newsletter_content = newsletter_content.rstrip() + MARKDOWN_FOOTER
         outfile.write_text(newsletter_content, encoding="utf-8")
 
         # Log and persist token/cost metrics if available
