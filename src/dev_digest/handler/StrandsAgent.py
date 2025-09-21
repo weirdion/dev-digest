@@ -7,7 +7,7 @@ from collections import defaultdict
 
 from strands import Agent
 from strands.agent import AgentResult
-from dev_digest.model import FeedEntry
+from dev_digest.model import FeedEntry, DigestCandidate
 from dev_digest.utility.constants import (
     PER_SECTION_CAP,
     TOP_PICKS_COUNT,
@@ -268,7 +268,9 @@ class StrandsAgent:
             enriched["combined_score"] = combined_score
             enriched["score"] = combined_score
             section_meta = resolve_section(candidate.title, candidate.source, link, short_summary)
-            enriched["title"] = normalize_release_title(enriched.get("title", ""), link)
+            release_info = format_release_title(enriched.get("title", ""), link)
+            if release_info.is_release and not release_info.is_prerelease and release_info.title != enriched.get("title", ""):
+                enriched["title"] = release_info.title
             enriched["category"] = section_meta.title
             sections_map[section_meta.slug].append(enriched)
 
