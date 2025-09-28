@@ -432,7 +432,7 @@ class DeterministicDigest:
                     summary += "."
                 head = f"**{title} ({source})**" if source else f"**{title}**"
                 read_more = f" Read: {link}" if link else ""
-                lines.append(f"- ⭐ {head} — {date_str}: {summary}{read_more}")
+                lines.append(f"- {head} — {date_str}: {summary}{read_more}")
                 diagnostics.append(
                     self._diagnostic(
                         candidate=None,

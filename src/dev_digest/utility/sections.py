@@ -67,7 +67,13 @@ SECTIONS: Tuple[Section, ...] = (
             "shield",
         ),
         source_terms=("security", "cisa", "nessus"),
-        exclude_path_contains=("/blogs/machine-learning/",),
+        exclude_path_contains=(
+            "/blogs/machine-learning/",  # keep AWS ML blog out of Security
+            "/blogs/database/",          # database ops/observability -> AWS & Cloud
+            "/space/",                   # exclude Ars Technica space reporting
+            "aws/aws-cdk/releases/tag",  # route CDK release notes to Infra & Tooling
+            "hashicorp/terraform/releases/tag",  # Terraform release notes -> Infra & Tooling
+        ),
     ),
     Section(
         slug="infrastructure",
