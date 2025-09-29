@@ -1,6 +1,6 @@
 from typing import List
 
-AWS_FEEDS = [
+AWS_FEEDS: List[Str] = [
     "https://aws.amazon.com/blogs/aws/feed/",                              # AWS News Blog
     "https://aws.amazon.com/about-aws/whats-new/recent/feed/",             # What's New at AWS (service launches)
     "https://aws.amazon.com/security/security-bulletins/feed/",            # Security Bulletins
@@ -13,14 +13,19 @@ AWS_FEEDS = [
     "https://aws.amazon.com/blogs/devops/feed/",                           # DevOps & Developer Productivity
 ]
 
-IAC_FEEDS = [
+LAST_WEEK_AWS: List[Str] = [
+    "https://www.lastweekinaws.com/blog/feed/",                      # Last Week in AWS Blog
+    "https://www.lastweekinaws.com/newsletter/feed/"                 # Last Week in AWS Newsletter
+]
+
+IAC_FEEDS: List[Str] = [
     "https://www.hashicorp.com/blog/products/terraform/feed",        # Terraform
     "https://www.pulumi.com/blog/index.xml",                         # Pulumi Blog
     "https://github.com/aws/aws-cdk/releases.atom",                  # AWS CDK releases (GitHub Atom)
     "https://github.com/hashicorp/terraform/releases.atom",          # Terraform releases (GitHub Atom)
 ]
 
-KUBERNETES_FEEDS = [
+KUBERNETES_FEEDS: List[Str] = [
     "https://kubernetes.io/feed.xml",                                # Kubernetes Blog
     "https://helm.sh/blog/feed",                                     # Helm Blog
     "https://istio.io/blog/feed.xml",                                # Istio Blog
@@ -57,6 +62,7 @@ REGISTER_FEEDS: List[str] = [
 ]
 
 ALL_FEEDS: List[str] = AWS_FEEDS + \
+                       LAST_WEEK_AWS + \
                        IAC_FEEDS + \
                        KUBERNETES_FEEDS + \
                        PYTHON_FEEDS + \
