@@ -390,12 +390,16 @@ class DeterministicDigest:
             src = item.source.strip().lower()
             if src == "recent announcements":
                 continue
+            if "security bulletin" in src or "security bulletins" in src:
+                continue
             title_lower = item.title.lower()
             if "(release notes" in title_lower or "(pre-release" in title_lower:
                 continue
             if is_release_like(title_lower) and not any(k in title_lower for k in IAC_HIGH_SIGNAL_TERMS):
                 continue
             if any(k in title_lower for k in ["primer", "beginner", "how to", "tutorial", "introduction", "introduct"]):
+                continue
+            if any(term in title_lower for term in ["kubecon", "cloudnativecon", "conference", "summit", "event day", "open source securitycon"]):
                 continue
             host = canonicalize_url(item.link).split("//", 1)[-1].split("/", 1)[0]
             if host in seen_hosts:

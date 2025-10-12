@@ -255,6 +255,7 @@ def classify_recent_announcement(candidate: DigestCandidate) -> str:
         "instance sizes",
         "instance class",
         "instance classes",
+        "instances",
     )
     admin_low_terms = (
         "console",
@@ -268,6 +269,10 @@ def classify_recent_announcement(candidate: DigestCandidate) -> str:
         "view instances",
         "onboarding",
         "alerts via",
+        "time-off",
+        "time off",
+        "schedule adherence",
+        "analytics data lake",
     )
 
     if any(term in title_lower for term in ("cve", "cve-", "security bulletin", "security vulnerability", "privilege escalation", "vulnerability")):
@@ -282,6 +287,8 @@ def classify_recent_announcement(candidate: DigestCandidate) -> str:
     if any(term in title_lower for term in instance_low_terms):
         return "low"
     if any(term in title_lower for term in admin_low_terms):
+        return "low"
+    if "ec2" in title_lower and "instance" in title_lower:
         return "low"
 
     if any(term in title_lower for term in ("security", "firewall", "guardduty", "shield", "threat", "ddos", "protection", "iam", "policy")):

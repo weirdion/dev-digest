@@ -74,7 +74,7 @@ AWS_REGION_TERMS = [
     "sa-east-1", "me-south-1", "me-central-1", "af-south-1",
     "Tokyo", "Seoul", "Singapore", "Sydney", "Frankfurt", "London", "Paris", "Ireland",
     "Mumbai", "Sao Paulo", "Bahrain", "Hyderabad", "Melbourne", "Ohio", "N. Virginia",
-    "Philippines", "Makati", "Manila",
+    "Philippines", "Makati", "Manila", "Vietnam", "Kansas City", "Kansas", "Missouri", "MO",
 ]
 
 # Developer-preference signals
