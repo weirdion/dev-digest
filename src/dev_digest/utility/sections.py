@@ -73,6 +73,7 @@ SECTIONS: Tuple[Section, ...] = (
             "/space/",                   # exclude Ars Technica space reporting
             "aws/aws-cdk/releases/tag",  # route CDK release notes to Infra & Tooling
             "hashicorp/terraform/releases/tag",  # Terraform release notes -> Infra & Tooling
+            "/blogs/aws/",                # general AWS News Blog items are not security alerts
         ),
     ),
     Section(

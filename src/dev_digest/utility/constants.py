@@ -58,7 +58,7 @@ DEFAULT_MODEL_KEY = "sonnet-3.7"
 
 # Heuristic filters/keywords
 CLICKBAIT_TERMS = [
-    "unlocking", "next-generation", "revolutionize", "revolutionizing", "ultimate",
+    "unlock", "unlocking", "next-generation", "revolutionize", "revolutionizing", "ultimate",
     "game-changing", "seamless", "empower", "supercharge", "unleash", "transformative",
 ]
 
@@ -74,6 +74,7 @@ AWS_REGION_TERMS = [
     "sa-east-1", "me-south-1", "me-central-1", "af-south-1",
     "Tokyo", "Seoul", "Singapore", "Sydney", "Frankfurt", "London", "Paris", "Ireland",
     "Mumbai", "Sao Paulo", "Bahrain", "Hyderabad", "Melbourne", "Ohio", "N. Virginia",
+    "Philippines", "Makati", "Manila",
 ]
 
 # Developer-preference signals

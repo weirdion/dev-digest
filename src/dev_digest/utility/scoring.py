@@ -246,6 +246,29 @@ __all__ = [
 def classify_recent_announcement(candidate: DigestCandidate) -> str:
     title_lower = (candidate.title or "").lower()
     summary_lower = (candidate.summary or "").lower()
+    instance_low_terms = (
+        "instance type",
+        "instance types",
+        "instance family",
+        "instance families",
+        "instance size",
+        "instance sizes",
+        "instance class",
+        "instance classes",
+    )
+    admin_low_terms = (
+        "console",
+        "dashboard",
+        "screen recording",
+        "terms of use",
+        "privacy policy",
+        "invoice",
+        "billing",
+        "view and connect",
+        "view instances",
+        "onboarding",
+        "alerts via",
+    )
 
     if any(term in title_lower for term in ("cve", "cve-", "security bulletin", "security vulnerability", "privilege escalation", "vulnerability")):
         return "critical"
@@ -256,8 +279,12 @@ def classify_recent_announcement(candidate: DigestCandidate) -> str:
         return "low"
     if any(term.lower() in title_lower for term in AWS_REGION_TERMS):
         return "low"
+    if any(term in title_lower for term in instance_low_terms):
+        return "low"
+    if any(term in title_lower for term in admin_low_terms):
+        return "low"
 
-    if any(term in title_lower for term in ("security", "firewall", "guardduty", "shield", "threat", "ddos", "protection", "iam", "policy", "ec2", "instance", "compute")):
+    if any(term in title_lower for term in ("security", "firewall", "guardduty", "shield", "threat", "ddos", "protection", "iam", "policy")):
         return "high"
     if any(term in title_lower for term in ("terraform", "aws cdk", "cdk", "cloudformation")):
         return "high"
