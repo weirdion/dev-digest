@@ -15,6 +15,7 @@ from dev_digest.utility.constants import (
     IAC_HIGH_SIGNAL_TERMS,
     AWS_WHATS_NEW_LOW_SIGNAL,
     AWS_REGION_TERMS,
+    PRACTICAL_TERMS,
 )
 from dev_digest.utility.security import strip_html_to_text
 from dev_digest.utility.tools import canonicalize_url, normalize_text
@@ -79,6 +80,10 @@ class DeterministicDigest:
         t = re.sub(r"[^a-z0-9\s]", " ", (title or "").lower())
         stop = {"the", "and", "for", "with", "into", "your", "our", "are", "was", "were", "this", "that", "from", "you", "now", "new", "aws", "blog"}
         return {w for w in t.split() if len(w) > 2 and w not in stop}
+
+    def _has_practical_signal(self, item: DigestItem) -> bool:
+        text = f"{item.title} {item.summary}".lower()
+        return any(term in text for term in PRACTICAL_TERMS)
 
     def _freshness_score(self, published: datetime | None, run_dt: datetime) -> float:
         if not isinstance(published, datetime):
@@ -276,6 +281,38 @@ class DeterministicDigest:
             section_slug = resolve_section(item.title, item.source, item.link, item.summary).slug
             sections_map[section_slug].append(item)
 
+        # Keep Security & Alerts focused on actionable incidents/advisories.
+        security_required_terms = (
+            "cve",
+            "vulnerab",
+            "exploit",
+            "attack",
+            "malware",
+            "ransom",
+            "breach",
+            "zero-day",
+            "0-day",
+            "patch",
+            "security bulletin",
+            "incident",
+            "compromise",
+            "leak",
+        )
+        security_items = sections_map.get("security") or []
+        if security_items:
+            kept: List[DigestItem] = []
+            reassigned: List[DigestItem] = []
+            for item in security_items:
+                text = f"{item.title} {item.summary}".lower()
+                if any(term in text for term in security_required_terms):
+                    kept.append(item)
+                else:
+                    reassigned.append(item)
+            sections_map["security"] = kept
+            if reassigned:
+                sections_map.setdefault("aws_cloud", []).extend(reassigned)
+
+        overflow_to_misc: List[DigestItem] = []
         for section_meta in ordered_sections():
             arr = sections_map.get(section_meta.slug, [])
             arr.sort(key=lambda x: (x.combined_score, self._ts(x.published), x.canonical_url), reverse=True)
@@ -322,19 +359,27 @@ class DeterministicDigest:
             if self.per_section_cap:
                 cap = min(cap, self.per_section_cap)
             if len(merged) > cap:
-                for item in merged[cap:]:
-                    diagnostics.append(
-                        self._diagnostic(
-                            candidate=None,
-                            item=item,
-                            included=False,
-                            reason="per_section_cap",
-                            category=section_meta.title,
-                            section=None,
+                overflow = merged[cap:]
+                keep = merged[:cap]
+                for item in overflow:
+                    if self._has_practical_signal(item):
+                        overflow_to_misc.append(item)
+                    else:
+                        diagnostics.append(
+                            self._diagnostic(
+                                candidate=None,
+                                item=item,
+                                included=False,
+                                reason="per_section_cap",
+                                category=section_meta.title,
+                                section=None,
+                            )
                         )
-                    )
-                merged = merged[:cap]
+                merged = keep
             sections_map[section_meta.slug] = merged
+
+        if overflow_to_misc:
+            sections_map.setdefault("misc", []).extend(overflow_to_misc)
 
         all_items = [it for section_meta in section_defs for it in sections_map.get(section_meta.slug, [])]
         if len(all_items) > self.max_total:
@@ -418,6 +463,8 @@ class DeterministicDigest:
 
         lines: List[str] = []
         lines.append(f"# Dev Digest — Week of {run_date}")
+        lines.append("")
+        lines.append("Aggregated tech stuff that happened this week without the marketing noise.")
         lines.append("")
         if featured:
             lines.append("## Interesting Reads")

@@ -22,6 +22,9 @@ Editorial Priorities
 - Top picks need host diversity, exclude low-signal release notes unless IaC high-signal, and avoid AWS RA entries.
 - Top picks should skip AWS security bulletins, conference/event recaps, and other hype-y announcements even if they score well.
 - Security & Alerts should center on incidents/advisories; conference recaps can be moved to Misc if signal is weak.
+- Security section additionally requires incident markers (CVE, exploit, attack, malware, breach, patch, etc.); operational how-tos default back to AWS & Cloud.
+- Heuristics now boost “real-world”/case-study style posts (e.g., Kubernetes RBAC deep dives) so practical content doesn’t get trimmed by per-section caps.
+- If a practical post still exceeds a section cap, we overflow it into Misc rather than dropping it outright.
 
 Workflow Expectations
 - Honor CLI flags: `--no-ai` for deterministic runs, `--ai` to engage Strands agent; `--overwrite` rotates run directories safely.

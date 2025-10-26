@@ -92,3 +92,14 @@ LANGUAGE_FEATURE_TERMS = [
 IAC_HIGH_SIGNAL_TERMS = [
     "terraform", "pulumi", "cdk", "aws cdk", "infrastructure as code",
 ]
+
+PRACTICAL_TERMS = [
+    "real-world",
+    "real world",
+    "case study",
+    "playbook",
+    "field guide",
+    "deep dive",
+    "production",
+    "practical",
+]

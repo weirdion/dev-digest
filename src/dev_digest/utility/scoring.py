@@ -13,6 +13,7 @@ from dev_digest.utility.constants import (
     IAC_HIGH_SIGNAL_TERMS,
     LANGUAGE_FEATURE_TERMS,
     PERFORMANCE_TERMS,
+    PRACTICAL_TERMS,
 )
 
 GA_TERMS = ("generally available", "general availability", "ga ", "ga:", "stable release", "v1.0")
@@ -47,6 +48,7 @@ class HeuristicConfig:
     part_two: float
     government: float
     iac_release: float
+    practical_example: float
     negative_webinar: float
     negative_clickbait: float
     ra_penalty: float
@@ -97,6 +99,7 @@ DETERMINISTIC_PROFILE = ScoreProfile(
         part_two=6,
         government=8,
         iac_release=16,
+        practical_example=8,
         negative_webinar=30,
         negative_clickbait=14,
         ra_penalty=0,
@@ -125,6 +128,7 @@ AI_PROFILE = ScoreProfile(
         part_two=6,
         government=8,
         iac_release=8,
+        practical_example=6,
         negative_webinar=30,
         negative_clickbait=14,
         ra_penalty=18,
@@ -194,6 +198,8 @@ def compute_heuristic_score(candidate: DigestCandidate, config: HeuristicConfig)
     if any(term in title_lower for term in GOVERNMENT_TERMS):
         score += config.government
     score += _iac_release_bonus(title_lower, config.iac_release)
+    if any(term in title_lower for term in PRACTICAL_TERMS) or any(term in summary_lower for term in PRACTICAL_TERMS):
+        score += config.practical_example
 
     if any(term in title_lower for term in ("ec2", "instance", "compute")):
         score += 6
