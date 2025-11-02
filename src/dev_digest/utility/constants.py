@@ -9,7 +9,7 @@ TOP_PICKS_COUNT = 2  # how many 'Interesting Reads' to feature at the top
 OUT_DIR = "out"
 
 # markdown footer
-MARKDOWN_FOOTER = "\n\n Generated with ❤️ using [weirdion/dev-digest](https://github.com/weirdion/dev-digest).\n"
+MARKDOWN_FOOTER = "\n\n Generated with ❤️ using [weirdion/dev-digest](https://github.com/weirdion/dev-digest) and curated by [Ankit Patterson](https://substack.com/@weirdion).\n"
 
 KEYWORDS_TO_IGNORE = [
     "training-and-certification",
