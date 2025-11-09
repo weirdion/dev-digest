@@ -85,6 +85,16 @@ class DeterministicDigest:
         text = f"{item.title} {item.summary}".lower()
         return any(term in text for term in PRACTICAL_TERMS)
 
+    def _has_performance_win(self, item: DigestItem) -> bool:
+        """Check if item describes a concrete performance improvement."""
+        from dev_digest.utility.constants import PERFORMANCE_WIN_PATTERNS
+        text = f"{item.title} {item.summary}".lower()
+        return any(re.search(pattern, text, re.IGNORECASE) for pattern in PERFORMANCE_WIN_PATTERNS)
+
+    def _is_overflow_worthy(self, item: DigestItem) -> bool:
+        """Check if item should be preserved via overflow routing."""
+        return self._has_practical_signal(item) or self._has_performance_win(item)
+
     def _freshness_score(self, published: datetime | None, run_dt: datetime) -> float:
         if not isinstance(published, datetime):
             return 0.0
@@ -362,7 +372,8 @@ class DeterministicDigest:
                 overflow = merged[cap:]
                 keep = merged[:cap]
                 for item in overflow:
-                    if self._has_practical_signal(item):
+                    # Preserve practical/performance content via overflow to Misc
+                    if self._is_overflow_worthy(item):
                         overflow_to_misc.append(item)
                     else:
                         diagnostics.append(
@@ -403,6 +414,49 @@ class DeterministicDigest:
                         )
             sections_map = new_sections
 
+        # Process AWS RA capping first to collect overflow items
+        severity_order = ["critical", "high", "medium", "low"]
+        selected_ra: Dict[str, List[DigestItem]] = {}
+        ra_overflow_to_interesting: List[DigestItem] = []
+        for severity in severity_order:
+            items = [item for item, sev in aws_recent_announcements if sev == severity]
+            if not items:
+                continue
+            items.sort(key=lambda x: self._ts(x.published), reverse=True)
+            cap = self.ra_section_caps.get(severity)
+            if cap is not None and cap >= 0:
+                trimmed = items[cap:]
+                for item in trimmed:
+                    # Preserve high-value AWS RA items via overflow to Interesting Reads
+                    if self._is_overflow_worthy(item):
+                        ra_overflow_to_interesting.append(item)
+                        diagnostics.append(
+                            self._diagnostic(
+                                candidate=None,
+                                item=item,
+                                included=False,
+                                reason="aws_ra_overflow_to_interesting",
+                                category="AWS Recent Announcements",
+                                section=None,
+                                aws_severity=severity,
+                            )
+                        )
+                    else:
+                        diagnostics.append(
+                            self._diagnostic(
+                                candidate=None,
+                                item=item,
+                                included=False,
+                                reason="aws_ra_cap",
+                                category="AWS Recent Announcements",
+                                section=None,
+                                aws_severity=severity,
+                            )
+                        )
+                items = items[:cap]
+            if items:
+                selected_ra[severity] = items
+
         def is_release_like(title_l: str) -> bool:
             return bool(
                 re.search(r"kubernetes v\d+\.\d+", title_l)
@@ -428,6 +482,9 @@ class DeterministicDigest:
 
         high_severity_ra = [it for it, sev in aws_recent_announcements if sev in {"critical", "high"}]
         flat_sorted.extend(high_severity_ra)
+
+        # Add overflow AWS RA items with practical/performance signals to featured candidate pool
+        flat_sorted.extend(ra_overflow_to_interesting)
 
         featured: List[DigestItem] = []
         seen_hosts: set[str] = set()
@@ -499,39 +556,7 @@ class DeterministicDigest:
                 )
             lines.append("")
 
-        # AWS Recent Announcements section
-        severity_order = ["critical", "high", "medium", "low"]
-        severity_labels = {
-            "critical": "Critical",
-            "high": "High",
-            "medium": "Medium",
-            "low": "Low",
-        }
-        selected_ra: Dict[str, List[DigestItem]] = {}
-        for severity in severity_order:
-            items = [item for item, sev in aws_recent_announcements if sev == severity]
-            if not items:
-                continue
-            items.sort(key=lambda x: self._ts(x.published), reverse=True)
-            cap = self.ra_section_caps.get(severity)
-            if cap is not None and cap >= 0:
-                trimmed = items[cap:]
-                for item in trimmed:
-                    diagnostics.append(
-                        self._diagnostic(
-                            candidate=None,
-                            item=item,
-                            included=False,
-                            reason="aws_ra_cap",
-                            category="AWS Recent Announcements",
-                            section=None,
-                            aws_severity=severity,
-                        )
-                    )
-                items = items[:cap]
-            if items:
-                selected_ra[severity] = items
-
+        # AWS Recent Announcements section (already processed above for overflow)
         if selected_ra:
             lines.append("## AWS Recent Announcements")
             impact_labels = {

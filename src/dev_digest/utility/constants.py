@@ -103,3 +103,31 @@ PRACTICAL_TERMS = [
     "production",
     "practical",
 ]
+
+# Performance improvement indicators (for overflow routing)
+PERFORMANCE_WIN_PATTERNS = [
+    r"\d+x\s+(faster|improvement|performance|throughput)",
+    r"(latency|response time)\s+reduc",
+    r"\d+%\s+(faster|improvement|performance)",
+]
+
+# Security quantified impact indicators (for score boosting)
+SECURITY_IMPACT_PATTERNS = [
+    r"\d+[KM]?\+?\s+downloads?",
+    r"\d+[KM]?\+?\s+packages?",
+    r"\d+[KM]?\+?\s+victims?",
+    r"active exploitation",
+    r"in the wild",
+    r"actively exploited",
+]
+
+# Partner/program keywords that should downgrade AWS RA severity
+PARTNER_PROGRAM_TERMS = [
+    "partner",
+    "specialization",
+    "certification",
+    "program",
+    "initiative",
+    "service ready",
+    "competency",
+]

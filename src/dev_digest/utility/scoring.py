@@ -14,6 +14,9 @@ from dev_digest.utility.constants import (
     LANGUAGE_FEATURE_TERMS,
     PERFORMANCE_TERMS,
     PRACTICAL_TERMS,
+    PERFORMANCE_WIN_PATTERNS,
+    SECURITY_IMPACT_PATTERNS,
+    PARTNER_PROGRAM_TERMS,
 )
 
 GA_TERMS = ("generally available", "general availability", "ga ", "ga:", "stable release", "v1.0")
@@ -179,6 +182,10 @@ def compute_heuristic_score(candidate: DigestCandidate, config: HeuristicConfig)
         score += config.postmortem
     if "cve-" in title_lower or "cve-" in summary_lower or any(term in title_lower for term in SECURITY_TERMS):
         score += config.security
+        # Boost security items with quantified impact (downloads, victims, etc.)
+        text = f"{title_lower} {summary_lower}"
+        if any(re.search(pattern, text, re.IGNORECASE) for pattern in SECURITY_IMPACT_PATTERNS):
+            score += 3
     if any(term in title_lower for term in DEPRECATION_TERMS):
         score += config.deprecation
     if any(term in title_lower for term in PERFORMANCE_TERMS):
@@ -280,6 +287,13 @@ def classify_recent_announcement(candidate: DigestCandidate) -> str:
         "schedule adherence",
         "analytics data lake",
     )
+
+    # Check for partner/program announcements first (downgrade to low unless it's a security incident)
+    has_partner_terms = any(term in title_lower for term in PARTNER_PROGRAM_TERMS)
+    has_security_incident = any(term in title_lower for term in ("cve", "vulnerability", "exploit", "breach"))
+
+    if has_partner_terms and not has_security_incident:
+        return "low"
 
     if any(term in title_lower for term in ("cve", "cve-", "security bulletin", "security vulnerability", "privilege escalation", "vulnerability")):
         return "critical"
