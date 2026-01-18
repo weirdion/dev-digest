@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from typing import Dict
+from urllib.parse import urlparse
 
 from dev_digest.model import DigestCandidate
 from dev_digest.utility.sections import resolve_section
@@ -17,6 +18,9 @@ from dev_digest.utility.constants import (
     PERFORMANCE_WIN_PATTERNS,
     SECURITY_IMPACT_PATTERNS,
     PARTNER_PROGRAM_TERMS,
+    AI_POLICY_TERMS,
+    AI_POLICY_HOSTS,
+    AI_FINANCE_TERMS,
 )
 
 GA_TERMS = ("generally available", "general availability", "ga ", "ga:", "stable release", "v1.0")
@@ -52,6 +56,8 @@ class HeuristicConfig:
     government: float
     iac_release: float
     practical_example: float
+    policy_penalty: float
+    finance_penalty: float
     negative_webinar: float
     negative_clickbait: float
     ra_penalty: float
@@ -103,6 +109,8 @@ DETERMINISTIC_PROFILE = ScoreProfile(
         government=8,
         iac_release=16,
         practical_example=8,
+        policy_penalty=10,
+        finance_penalty=8,
         negative_webinar=30,
         negative_clickbait=14,
         ra_penalty=0,
@@ -132,6 +140,8 @@ AI_PROFILE = ScoreProfile(
         government=8,
         iac_release=8,
         practical_example=6,
+        policy_penalty=8,
+        finance_penalty=6,
         negative_webinar=30,
         negative_clickbait=14,
         ra_penalty=18,
@@ -207,6 +217,19 @@ def compute_heuristic_score(candidate: DigestCandidate, config: HeuristicConfig)
     score += _iac_release_bonus(title_lower, config.iac_release)
     if any(term in title_lower for term in PRACTICAL_TERMS) or any(term in summary_lower for term in PRACTICAL_TERMS):
         score += config.practical_example
+
+    host_lower = ""
+    try:
+        parsed = urlparse((getattr(candidate, "canonical_url", "") or candidate.link or "").strip())
+        host_lower = (parsed.netloc or "").lower()
+    except Exception:
+        host_lower = ""
+    if host_lower:
+        if any(host_lower.endswith(policy_host) for policy_host in AI_POLICY_HOSTS):
+            if any(term in title_lower for term in AI_POLICY_TERMS) or any(term in summary_lower for term in AI_POLICY_TERMS):
+                score -= config.policy_penalty
+            if any(term in title_lower for term in AI_FINANCE_TERMS) or any(term in summary_lower for term in AI_FINANCE_TERMS):
+                score -= config.finance_penalty
 
     if any(term in title_lower for term in ("ec2", "instance", "compute")):
         score += 6

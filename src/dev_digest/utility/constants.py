@@ -104,6 +104,47 @@ PRACTICAL_TERMS = [
     "practical",
 ]
 
+AI_POLICY_TERMS = [
+    "policy",
+    "politic",
+    "legislation",
+    "legislature",
+    "bill",
+    "congress",
+    "senate",
+    "house",
+    "doj",
+    "department of justice",
+    "lawsuit",
+    "court",
+    "stalker",
+    "grant",
+    "funding",
+    "campaign",
+    "election",
+    "regulation",
+]
+
+AI_POLICY_HOSTS = [
+    "arstechnica.com",
+    "openai.com",
+]
+
+AI_FINANCE_TERMS = [
+    "earnings",
+    "revenue",
+    "profit",
+    "loss",
+    "shares",
+    "stock",
+    "valuation",
+    "quarter",
+    "q1",
+    "q2",
+    "q3",
+    "q4",
+]
+
 # Performance improvement indicators (for overflow routing)
 PERFORMANCE_WIN_PATTERNS = [
     r"\d+x\s+(faster|improvement|performance|throughput)",

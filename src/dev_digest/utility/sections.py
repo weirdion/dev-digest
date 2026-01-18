@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 from urllib.parse import urlparse
@@ -223,6 +224,11 @@ def ordered_sections() -> Tuple[Section, ...]:
 
 
 def resolve_section(title: str, source: str, link: str = "", summary: str = "") -> Section:
+    title_lower = (title or "").lower()
+    source_lower = (source or "").lower()
+    python_release_pattern = re.compile(r"\bpython\s+3\.\d+(?:\.\d+)?", re.IGNORECASE)
+    if python_release_pattern.search(title or "") or "python insider" in source_lower:
+        return SECTION_BY_SLUG["dev_lang"]
     for section in ordered_sections():
         if section.slug == "misc":
             continue

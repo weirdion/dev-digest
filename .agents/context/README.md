@@ -25,6 +25,8 @@ Editorial Priorities
 - Security section additionally requires incident markers (CVE, exploit, attack, malware, breach, patch, etc.); operational how-tos default back to AWS & Cloud.
 - Heuristics now boost “real-world”/case-study style posts (e.g., Kubernetes RBAC deep dives) so practical content doesn’t get trimmed by per-section caps.
 - If a practical post still exceeds a section cap, we overflow it into Misc rather than dropping it outright.
+- ML & AI section applies penalties to politics/grant-heavy posts from repeat offenders (Ars Technica policy pieces, OpenAI press updates) so technical launches/studies stay visible.
+- ML & AI also applies a small finance/earnings penalty (earnings, revenue, shares, stock, valuation, quarterly terms) for those same hosts; IPO/guidance are intentionally excluded.
 
 Workflow Expectations
 - Honor CLI flags: `--no-ai` for deterministic runs, `--ai` to engage Strands agent; `--overwrite` rotates run directories safely.
