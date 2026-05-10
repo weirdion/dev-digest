@@ -320,3 +320,6 @@ poetry.toml
 pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python,pycharm,macos
+
+# Playwright MCP artifacts (snapshots, console logs, screenshots)
+.playwright-mcp/
