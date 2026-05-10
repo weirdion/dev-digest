@@ -56,6 +56,63 @@ Operational Notes
 - Markdown digest file naming: `dev_digest_newsletter_yyyy_mm_dd.md`; diagnostics share the same directory.
 - Respect environment constraints: workspace-write sandbox, restricted network, approval-on-request for escalations.
 
+Weekly Publish Workflow
+1. Generate:  `uv run dev-digest run -d --no-ai --days 7 -wf`
+2. Curate:    evaluate output in `out/<date>/dev_digest_newsletter_<date>.md`, trim/move items section by section.
+3. Convert:   `uv run dev-digest publish out/<date>/dev_digest_newsletter_<date>.md` → writes `<same-dir>/<same-name>.html`
+4. Publish:   Use Playwright MCP tools to drive Substack (see sequence below). ALWAYS stop before "Send to everyone now" — user verifies and publishes manually.
+
+Substack Playwright Publish Sequence
+Pre-condition: Substack session is live via persistent profile at `~/.playwright-profiles/substack` (configured in `.mcp.json`).
+
+Step 1 — Navigate to dashboard
+  browser_navigate → https://weirdion.substack.com/publish/home
+
+Step 2 — Create new article
+  browser_click → text=Create
+  browser_click → text=Article
+  (new draft URL: https://weirdion.substack.com/publish/post/<id>)
+
+Step 3 — Set section
+  browser_click → text=Choose a section
+  browser_click → text=Developer Newsletter
+  Close the sidebar that opens: browser_evaluate → `() => document.querySelector('.file-sidebar-header-button')?.click()`
+
+Step 4 — Fill title and subtitle
+  browser_type → [data-testid="post-title"] with "Dev Digest — Week of YYYY-MM-DD"
+  browser_type → [placeholder="Add a subtitle…"] with "Aggregated tech stuff that happened this week without the marketing noise."
+
+Step 5 — Paste HTML body
+  Read the HTML file from `out/<date>/<name>.html`.
+  browser_evaluate → set clipboard via `navigator.clipboard.write([new ClipboardItem({ 'text/html': new Blob([html], {type:'text/html'}) })])`
+  browser_click → [data-testid="editor"]
+  browser_press_key → Meta+v
+  browser_wait_for → time: 3 seconds
+
+Step 6 — Open publish dialog
+  browser_click → button:has-text("Continue")  [use the one in the editor toolbar, not any sidebar button]
+  browser_wait_for → time: 2 seconds
+
+Step 7 — Add tags
+  browser_click → the "Add tags" combobox area (ref varies; use snapshot to find `combobox "Select or create tags"`)
+  For each tag in SUBSTACK_TAGS (see `src/dev_digest/utility/constants.py`):
+    browser_type → combobox with tag name
+    browser_click → matching option in the listbox (or browser_press_key → Enter if exact match)
+  NOTE: ref IDs are session-specific and change every run — always snapshot first to find the current combobox ref.
+  TODO: refactor to type-and-select per tag to avoid ref fragility.
+
+Step 8 — Set social preview image
+  browser_click → button "Social preview" (inside the publish dialog)
+  A sub-dialog opens with title "Edit social preview".
+  At the bottom are two image thumbnails — first is the newsletter cover image.
+  browser_evaluate → `() => { const imgs = document.querySelectorAll('dialog img, [role="dialog"] img'); imgs[0].closest('[role="button"],button,a')?.click() ?? imgs[0].click(); }`
+  browser_click → text="Save"  (use exact match to avoid hitting the "Saved" status button)
+  NOTE: if "Save" is ambiguous use `getByRole('button', { name: 'Save' })` or the exact ref from snapshot.
+
+Step 9 — STOP
+  Confirm the publish dialog shows: correct title/subtitle in social preview, all tags visible, cover image set, "Send to everyone now" button present.
+  Do NOT click "Send to everyone now". Hand off to user for final review and publish.
+
 Recent Preference Log
 - Added because weekly tuning is iterative and a fresh chat agent needs quick chronology, not just static rules.
 - Keep this as short bullets with date and intent whenever heuristics or editorial priorities change.
