@@ -16,6 +16,8 @@ from dev_digest.utility.constants import (
     AWS_WHATS_NEW_LOW_SIGNAL,
     AWS_REGION_TERMS,
     PRACTICAL_TERMS,
+    AI_POLICY_TERMS,
+    AI_POLICY_HOSTS,
 )
 from dev_digest.utility.security import strip_html_to_text
 from dev_digest.utility.tools import canonicalize_url, normalize_text
@@ -321,6 +323,43 @@ class DeterministicDigest:
             sections_map["security"] = kept
             if reassigned:
                 sections_map.setdefault("aws_cloud", []).extend(reassigned)
+
+        # Keep ML & AI focused on technical content; drop political/policy items from known policy hosts.
+        # Use word-boundary regex to avoid substring false positives (e.g. "ban" in "banana").
+        _policy_re = re.compile(
+            "|".join(r"\b" + re.escape(t) + r"\b" for t in AI_POLICY_TERMS),
+            re.IGNORECASE,
+        )
+        ml_ai_items = sections_map.get("ml_ai") or []
+        if ml_ai_items:
+            kept: List[DigestItem] = []
+            for item in ml_ai_items:
+                host = canonicalize_url(item.link).split("//", 1)[-1].split("/", 1)[0]
+                if any(host.endswith(ph) for ph in AI_POLICY_HOSTS):
+                    text = f"{item.title} {item.summary}".lower()
+                    if _policy_re.search(text):
+                        diagnostics.append(self._diagnostic(
+                            candidate=None, item=item, included=False,
+                            reason="ml_ai_policy_filter", category="ML & AI",
+                        ))
+                        continue
+                kept.append(item)
+            sections_map["ml_ai"] = kept
+
+        # Drop conference/event announcement items from all sections.
+        # Terms are specific enough to only match CNCF event promos, not technical content.
+        _event_promo_terms = ("co-located event", "summer of code", "kcds", "kubecon")
+        for _slug in list(sections_map.keys()):
+            _kept: List[DigestItem] = []
+            for item in sections_map[_slug]:
+                if any(term in item.title.lower() for term in _event_promo_terms):
+                    diagnostics.append(self._diagnostic(
+                        candidate=None, item=item, included=False,
+                        reason="event_promo_filter", category=item.category,
+                    ))
+                else:
+                    _kept.append(item)
+            sections_map[_slug] = _kept
 
         overflow_to_misc: List[DigestItem] = []
         for section_meta in ordered_sections():

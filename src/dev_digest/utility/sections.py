@@ -112,6 +112,7 @@ SECTIONS: Tuple[Section, ...] = (
             "aws/aws-cdk",
             "terraform/releases",
         ),
+        exclude_hosts=("realpython.com",),
     ),
     Section(
         slug="aws_cloud",
