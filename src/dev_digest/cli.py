@@ -1,6 +1,8 @@
 import click
+from pathlib import Path
 
 from dev_digest.command import digest as digest_cmd
+from dev_digest.command import publish as publish_cmd
 from dev_digest.utility.constants import MODEL_PROFILES, DEFAULT_MODEL_KEY
 
 from . import __version__
@@ -57,3 +59,9 @@ def run(debug: bool, days: int, model_key: str, ai: bool, with_footer: bool, ove
             overwrite=overwrite
             )
         or 0)
+
+
+@app.command("publish", help="Convert a newsletter markdown file to Substack-ready HTML")
+@click.argument("md_file", type=click.Path(exists=True, path_type=Path))
+def publish(md_file: Path) -> int:
+    return publish_cmd.run(md_file)
