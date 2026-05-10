@@ -94,12 +94,14 @@ Step 6 — Open publish dialog
   browser_wait_for → time: 2 seconds
 
 Step 7 — Add tags
-  browser_click → the "Add tags" combobox area (ref varies; use snapshot to find `combobox "Select or create tags"`)
+  Use type-and-select per tag — do NOT rely on snapshot ref IDs, they change every session.
+  The combobox has a stable role selector: `getByRole('combobox', { name: 'Select or create tags' })` or `[placeholder="Select or create tags"]`.
   For each tag in SUBSTACK_TAGS (see `src/dev_digest/utility/constants.py`):
-    browser_type → combobox with tag name
-    browser_click → matching option in the listbox (or browser_press_key → Enter if exact match)
-  NOTE: ref IDs are session-specific and change every run — always snapshot first to find the current combobox ref.
-  TODO: refactor to type-and-select per tag to avoid ref fragility.
+    browser_type → target: `[placeholder="Select or create tags"]`, text: <tag name>  (fills combobox, triggers dropdown)
+    browser_wait_for → time: 0.5 (let options render)
+    browser_click → target: `[role="option"]:has-text("<tag name>")` with exact match  (selects from listbox)
+  The combobox clears automatically after each selection — no need to clear it manually.
+  If an option doesn't appear (tag not yet created), it can be created by pressing Enter on the typed text.
 
 Step 8 — Set social preview image
   browser_click → button "Social preview" (inside the publish dialog)
