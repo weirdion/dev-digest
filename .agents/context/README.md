@@ -35,6 +35,9 @@ Workflow Expectations
 - Respect existing change sets; never revert unrelated user edits.
 - When running commands, prefer `rg` for searches; always set `workdir` in CLI harness.
 - Local-only note: sandbox blocks `uv run pytest`, so validation requires running the test suite locally.
+- Weekly review discipline: always evaluate against the exact run directory under `out/YYYY-MM-DD` currently under discussion and avoid mixing stories across weeks.
+- In light-news weeks, bias toward manual newsletter trims/reorganization over permanent scoring changes to avoid overtuning the model to sparse data.
+- When section quality is weak, treat clearly non-engineering ML/AI items (ads, lawsuits, personality/political stories) as easy cut candidates unless they contain direct engineering impact.
 
 Security & Data Hygiene
 - Validate feed URLs, sanitize/strip HTML, limit text length.
@@ -52,3 +55,25 @@ Operational Notes
 - Latest run artifacts live under `out/YYYY-MM-DD*`; re-use cached feeds unless `--overwrite`.
 - Markdown digest file naming: `dev_digest_newsletter_yyyy_mm_dd.md`; diagnostics share the same directory.
 - Respect environment constraints: workspace-write sandbox, restricted network, approval-on-request for escalations.
+
+Recent Preference Log
+- Added because weekly tuning is iterative and a fresh chat agent needs quick chronology, not just static rules.
+- Keep this as short bullets with date and intent whenever heuristics or editorial priorities change.
+- 2026-03-02: Added `"senator"` to AI_POLICY_TERMS — `\bsenate\b` does not match "senators" (plural); gap caught items like "Senators want US energy agency to monitor data centers".
+- 2026-03-02: Added `ml_ai_policy_filter` hard post-processing block in DeterministicDigest — score penalties alone insufficient because freshness floor gives 2-3 day old items ~24-27 combined score regardless of heuristic penalty.
+- 2026-03-02: Added `event_promo_filter` global block for CNCF/KubeCon event promos ("co-located event", "summer of code", "kcds", "kubecon") — caught 5-6 items per week consistently.
+- 2026-03-02: Added `exclude_hosts=("realpython.com",)` to Infrastructure section — Real Python tutorials were routing there via "command line" keyword in summaries.
+- 2026-03-02: Removed `"government"` from GOVERNMENT_TERMS — was giving +8 boost to political stories.
+- 2026-03-02: OpenAI policy items bypass ml_ai_policy_filter when they contain AWS/Amazon keywords — they route to aws_cloud (order=20) before ml_ai (order=40). Handle manually; too sparse to heuristic-fix.
+- 2026-03-15: AWS DevOps Agent blog posts ("incident response" in body) repeatedly misroute to Security section — the security_required_terms filter matches "incident" as a false positive. Recurring pattern; watch for heuristic fix opportunity.
+- 2026-03-15: Political/policy Ars Technica stories ("Trump data center", "Perplexity lawsuit") route to Infrastructure or AWS&Cloud when they contain cloud/infra keywords — ml_ai_policy_filter only covers the ml_ai bucket. Handle manually for now.
+- 2026-03-22: Holeover items from prior week (published 7+ days ago) re-appear in subsequent run — age them out manually if they were already featured.
+- 2026-03-22: Beginner/tutorial Real Python content (note-taking, Git basics, OOP intro) repeatedly surfaces in Dev Tools — cut on sight; not senior-engineer-worthy.
+- 2026-03-22: Vendor case studies (Reco, Halliburton, Oldcastle, etc. using Bedrock/SageMaker) flood AWS&Cloud — cut unless there is a concrete benchmark or architectural decision worth noting (e.g. DocumentDB Graviton4 63% Sysbench improvement is keep; "Halliburton seismic workflow" is cut).
+- 2026-03-29: Kubernetes blog posts misroute to Dev Tools or ML&AI — move to Kubernetes/Containers on sight.
+- 2026-03-29: Nova ML tutorials (video semantic search, text-to-SQL, hyper-personalized viewer) consistently land in Infrastructure or AWS&Cloud — cut; they are marketing tutorials.
+- 2026-04-19: "Partner Revenue Measurement" RA entries are partner program noise — cut from Low Impact on sight.
+- 2026-05-10: Substack publish workflow confirmed via Playwright: section set to "Developer Newsletter", title/subtitle populated from markdown H1 and subtitle line, body pasted as HTML (not plain text). Publish dialog requires tags to be set; evergreen tag set: aws, cloud, devops, kubernetes, security, python, infrastructure, newsletter.
+- 2026-05-10: Substack editor (ProseMirror) ignores markdown on paste — must paste as HTML via ClipboardItem with text/html type. h2/h3/ul/li/strong/a all render correctly.
+- 2026-05-10: Newsletter item links: title should be the hyperlink (Option A pattern), with source publication already embedded in title text providing transparency. Raw "Read: URL" pattern dropped in HTML output. Footer line kept and converted (markdown links → html anchors).
+- 2026-05-10: .mcp.json added to repo with Playwright MCP config using --user-data-dir ~/.playwright-profiles/substack for persistent Substack session across Claude Code sessions.
