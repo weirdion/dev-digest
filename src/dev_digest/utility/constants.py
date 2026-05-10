@@ -11,6 +11,16 @@ OUT_DIR = "out"
 # markdown footer
 MARKDOWN_FOOTER = "\n\n Generated with ❤️ using [weirdion/dev-digest](https://github.com/weirdion/dev-digest) and curated by [Ankit Patterson](https://substack.com/@weirdion).\n"
 
+# Standardized Substack tag set for Developer Newsletter posts
+SUBSTACK_TAGS = [
+    "AWS", "DevOps", "Kubernetes", "Security", "Python", "IaC", "Containers",
+    "News", "ML", "MLOps", "Agentic AI", "AI", "Bedrock", "CDK", "CI/CD",
+    "CLI", "Claude", "Cloud Engineering", "Data Engineering", "Data Pipeline",
+    "developers", "Disaster Recovery", "ETL", "GenAI", "Gemini", "Github",
+    "GPT", "Infrastructure As Code", "SageMaker", "Serverless",
+    "Software Engineering", "software development", "technology", "Terraform",
+]
+
 KEYWORDS_TO_IGNORE = [
     "training-and-certification",
     "govcloud",
@@ -112,9 +122,13 @@ AI_POLICY_TERMS = [
     "bill",
     "congress",
     "senate",
+    "senator",
     "house",
     "doj",
     "department of justice",
+    "department of war",
+    "department of defense",
+    "pentagon",
     "lawsuit",
     "court",
     "stalker",
@@ -123,6 +137,12 @@ AI_POLICY_TERMS = [
     "campaign",
     "election",
     "regulation",
+    "ban",
+    "military",
+    "lays off",
+    "layoff",
+    "workforce",
+    "mental health",
 ]
 
 AI_POLICY_HOSTS = [
