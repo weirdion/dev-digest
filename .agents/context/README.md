@@ -94,14 +94,22 @@ Step 6 — Open publish dialog
   browser_wait_for → time: 2 seconds
 
 Step 7 — Add tags
-  Use type-and-select per tag — do NOT rely on snapshot ref IDs, they change every session.
-  The combobox has a stable role selector: `getByRole('combobox', { name: 'Select or create tags' })` or `[placeholder="Select or create tags"]`.
-  For each tag in SUBSTACK_TAGS (see `src/dev_digest/utility/constants.py`):
-    browser_type → target: `[placeholder="Select or create tags"]`, text: <tag name>  (fills combobox, triggers dropdown)
-    browser_wait_for → time: 0.5 (let options render)
-    browser_click → target: `[role="option"]:has-text("<tag name>")` with exact match  (selects from listbox)
-  The combobox clears automatically after each selection — no need to clear it manually.
-  If an option doesn't appear (tag not yet created), it can be created by pressing Enter on the typed text.
+  Two approaches — pick one, don't mix or retry mid-flow.
+
+  Approach A (recommended): Single batch via browser_evaluate.
+    First click the combobox once: `browser_click → [placeholder="Select or create tags"]` to open the dropdown.
+    Then run a SINGLE browser_evaluate that loops through SUBSTACK_TAGS (see `src/dev_digest/utility/constants.py`):
+      `for tag of targets: const opt = [...document.querySelectorAll('[role="option"]')].find(o => o.textContent.trim() === tag); if (opt) opt.click();`
+    Trust the return value (`clicked: N` means N tags were registered server-side).
+    DO NOT retry or run a second batch — the chip UI does NOT re-render after rapid synchronous .click() calls, but the tags ARE saved server-side. Retrying triggers Substack's "Tag already set" alert flood that takes many tool calls to drain.
+    Verify by closing+reopening the Publish dialog OR refreshing the page; the chips will all render correctly.
+
+  Approach B (fallback): Type-and-Enter per tag, one tool call each (slower, ~33 calls but with visible chip updates).
+    For each tag in SUBSTACK_TAGS:
+      browser_type → target: `[placeholder="Select or create tags"]`, text: <tag>, submit: true
+    Each call types and presses Enter, which selects the highlighted matching option. Combobox clears between selections.
+
+  Stable selectors regardless of approach: combobox is `[placeholder="Select or create tags"]`; options are `[role="option"]` with exact textContent match.
 
 Step 8 — Set social preview image
   browser_click → button "Social preview" (inside the publish dialog)
