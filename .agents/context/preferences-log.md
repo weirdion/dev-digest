@@ -117,6 +117,25 @@ Append new entries at the bottom with the date and the *why*. Cross-link to
 - The `prompt.md` now directs the agent to read context files at session
   start.
 
+2026-06-07 — AWS security bulletins date extraction
+---------------------------------------------------
+- **Problem**: every entry in the AWS Security Bulletins RSS feed
+  (`https://aws.amazon.com/security/security-bulletins/feed/`) has the same
+  `pubDate` set to the feed's `lastBuildDate`. All bulletins look fresh on
+  every fetch regardless of their real publish date. The Security section
+  spent 3+ weeks recycling old CVEs (CVE-2026-8838 Redshift driver from
+  2026-05-17, SageMaker SDK CVEs from 2026-05-24, etc.).
+- **Fix**: parse the actual `Publication Date` from the description body in
+  `FeedHandler._entry_dt()`. Handles both `YYYY/MM/DD` and `MM/DD/YYYY`
+  formats, AM/PM and 24h time, PDT/PST/UTC/GMT timezones, and the bogus
+  `15:30 PM PDT` (24h with redundant PM) format AWS sometimes ships.
+- **Hard-fail policy**: if extraction fails for a known-broken source (e.g.
+  typo like `06/025/2026`), return None to drop the item rather than fall
+  back to the always-stale feed pubDate. Caught a real typo in
+  CVE-2026-11400/11401 (Aurora PostgreSQL) on the 2026-06-07 run.
+- Tests in `tests/test_feedhandler.py` cover both date formats, the 24h-with-
+  PM edge case, PST offset, missing date, and the malformed-date drop.
+
 How to add a new entry
 ----------------------
 - Date the entry (YYYY-MM-DD) and give it a short heading.

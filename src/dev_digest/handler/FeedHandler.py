@@ -1,7 +1,8 @@
 import logging
 import json
+import re
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List
 from urllib.parse import urlparse
 from pathlib import Path
@@ -16,6 +17,58 @@ from dev_digest.utility.tools import normalize_text, within_window
 from dev_digest.utility.security import sanitize_text, strip_html_to_text
 
 log = logging.getLogger("dev-digest")
+
+# AWS security bulletins RSS sets every item's pubDate to the feed's lastBuildDate,
+# so all bulletins look fresh on every fetch. The actual publication date is
+# embedded in the description body as "Publication Date: <date> <time> <tz>".
+# Both YYYY/MM/DD and MM/DD/YYYY formats appear in the wild.
+_BULLETIN_DATE_RE = re.compile(
+    r"Publication Date[^0-9]+?(\d{1,4})[/-](\d{1,2})[/-](\d{1,4})"
+    r"(?:[\s\S]{0,8}?(\d{1,2}):(\d{2})\s*(AM|PM)?\s*([A-Z]{2,4})?)?",
+    re.IGNORECASE,
+)
+
+# AWS bulletins use these timezone abbreviations.
+_TZ_OFFSETS = {"PDT": -7, "PST": -8, "UTC": 0, "GMT": 0}
+
+
+def _extract_bulletin_date(text: str) -> datetime | None:
+    """Extract the canonical Publication Date from an AWS security bulletin description.
+
+    Handles YYYY/MM/DD and MM/DD/YYYY date formats and both 12h and 24h time formats.
+    Returns a timezone-aware UTC datetime, or None if no valid date is found.
+    """
+    if not text:
+        return None
+    m = _BULLETIN_DATE_RE.search(text)
+    if not m:
+        return None
+    a, b, c = int(m.group(1)), int(m.group(2)), int(m.group(3))
+    if a > 31:
+        year, month, day = a, b, c
+    elif c > 31:
+        year, month, day = c, a, b
+    else:
+        return None
+    if not (1 <= month <= 12 and 1 <= day <= 31):
+        return None
+    hour = int(m.group(4)) if m.group(4) else 0
+    minute = int(m.group(5)) if m.group(5) else 0
+    ampm = (m.group(6) or "").upper()
+    # Hours > 12 are 24h format; ignore AM/PM (AWS sometimes writes "15:30 PM PDT").
+    if hour <= 12:
+        if ampm == "PM" and hour < 12:
+            hour += 12
+        elif ampm == "AM" and hour == 12:
+            hour = 0
+    tz_name = (m.group(7) or "PDT").upper()
+    offset_hours = _TZ_OFFSETS.get(tz_name, -7)
+    try:
+        local_dt = datetime(year, month, day, hour, minute,
+                            tzinfo=timezone(timedelta(hours=offset_hours)))
+        return local_dt.astimezone(timezone.utc)
+    except (ValueError, OverflowError):
+        return None
 
 class FeedHandler:
     def __init__(self) -> None:
@@ -56,6 +109,15 @@ class FeedHandler:
         return fallback or host or link
 
     def _entry_dt(self, entry: Any) -> datetime | None:
+        # AWS security bulletins set every item's pubDate to the feed's lastBuildDate,
+        # so we have to extract the real date from the description body.
+        # If extraction fails (e.g. malformed date), drop the item rather than
+        # falling back to the always-stale feed-level pubDate.
+        link = (entry.get("link") or "").lower()
+        if "/security/security-bulletins" in link:
+            desc = entry.get("summary") or entry.get("description") or ""
+            return _extract_bulletin_date(desc)
+
         t = entry.get("published_parsed") or entry.get("updated_parsed")
         if not t:
             return None
