@@ -11,6 +11,10 @@ Codebase
 - **Feed ingestion**: `src/dev_digest/handler/FeedHandler.py`. Normalizes AWS
   sources, sanitizes HTML, respects lookback windows, caches feeds under
   `out/<date>/tmp` for re-runs without re-fetching.
+  - **Per-source date extraction**: AWS security bulletins set every item's
+    `pubDate` to the feed's `lastBuildDate`. `_entry_dt()` detects bulletin
+    links and uses `_extract_bulletin_date()` against the description body
+    instead. If extraction fails (malformed date), the item is dropped.
 - **AI-assisted path** (optional): `src/dev_digest/handler/StrandsAgent.py`.
   Uses Strands Agents for short summaries / impact scores while keeping
   formatting deterministic. Logs token usage.

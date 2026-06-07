@@ -13,7 +13,7 @@ Files in this directory
 - `preferences-log.md` — chronological log of heuristic / editorial changes and
   hard-won learnings. Append-only.
 
-Current state (as of 2026-05-31)
+Current state (as of 2026-06-07)
 --------------------------------
 The system is stable and the weekly cadence is:
 
@@ -39,6 +39,11 @@ Recently verified (so a fresh session does not re-discover):
   dropdown without losing the publish dialog state.
 - **The standardized tag set** lives in `src/dev_digest/utility/constants.py` as
   `SUBSTACK_TAGS` (34 tags). The same list goes on every post.
+- **AWS security bulletins date extraction** (2026-06-07): the feed's `pubDate`
+  is the same for every entry, so the real date is parsed from the description
+  body. If extraction fails, the bulletin is dropped. See
+  `FeedHandler._extract_bulletin_date` and `preferences-log.md` entry for
+  details.
 
 When starting a new conversation
 --------------------------------
