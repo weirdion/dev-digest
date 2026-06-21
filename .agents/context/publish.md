@@ -54,11 +54,20 @@ browser_navigate → https://weirdion.substack.com/publish/home
 ```
 
 ### Step 2 — Create new article
+
+**Preferred (more reliable):** navigate directly to the new-post URL. Substack
+creates a fresh draft and redirects to `/publish/post/<id>`:
+```
+browser_navigate → https://weirdion.substack.com/publish/post?type=newsletter
+```
+
+**Fallback:** click through the Create dropdown. Note: the dropdown sometimes
+fails to render the "Article" menu item after `Create` is clicked (seen
+2026-06-21). Use the direct URL above if this happens.
 ```
 browser_click → text=Create
 browser_click → text=Article
 ```
-URL becomes `https://weirdion.substack.com/publish/post/<id>`.
 
 ### Step 3 — Set section
 ```

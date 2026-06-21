@@ -136,6 +136,17 @@ Append new entries at the bottom with the date and the *why*. Cross-link to
 - Tests in `tests/test_feedhandler.py` cover both date formats, the 24h-with-
   PM edge case, PST offset, missing date, and the malformed-date drop.
 
+2026-06-21 — Direct URL for new-post creation
+---------------------------------------------
+- **Problem**: clicking `Create` on the Substack dashboard sometimes does not
+  render the dropdown's `Article` menu item (the dropdown opens but the items
+  don't materialize). Lost a few tool calls on 2026-06-21 chasing it.
+- **Fix**: navigate directly to
+  `https://weirdion.substack.com/publish/post?type=newsletter`. Substack
+  creates a fresh draft and redirects to `/publish/post/<id>`.
+- Documented in `publish.md` Step 2 as the preferred path with the Create
+  dropdown demoted to a fallback.
+
 How to add a new entry
 ----------------------
 - Date the entry (YYYY-MM-DD) and give it a short heading.
