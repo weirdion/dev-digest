@@ -323,3 +323,10 @@ pyrightconfig.json
 
 # Playwright MCP artifacts (snapshots, console logs, screenshots)
 .playwright-mcp/
+
+# Stray Playwright profile dir created when `$HOME` in argv is not expanded.
+# Contains the live Substack browser session (cookies, auth) — MUST NOT be
+# committed to a public repo. Kept ignored even after the profile moves to
+# the real home directory, as belt-and-suspenders.
+$HOME/
+\$HOME/
