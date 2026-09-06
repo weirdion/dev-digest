@@ -41,9 +41,10 @@ Writes `<same-dir>/<same-name>.html`. The converter:
 Phase 4 — Publish to Substack (Playwright)
 ------------------------------------------
 The full sequence below. Pre-condition: `.mcp.json` configures the Playwright
-MCP server with `--user-data-dir $HOME/.playwright-profiles/substack` so the
-Substack session persists. If you're not logged in, the user must do it once
-manually in the browser the MCP server launches.
+MCP server with `--user-data-dir /Users/ankitpatterson/.playwright-profiles/substack`
+(absolute path — `$HOME` in argv does NOT expand, see README) so the Substack
+session persists. If you're not logged in, the user must do it once manually in
+the browser the MCP server launches.
 
 **ALWAYS stop before clicking "Send to everyone now"**. The user verifies and
 publishes manually.
@@ -107,8 +108,11 @@ Escape `&` to `&amp;` in section headings to avoid sniff edge cases (the
 converter already produces raw `&` and it has worked, but be defensive).
 
 ### Step 6 — Open publish dialog
+
+The Continue button no longer responds to a plain text-match click; use the
+`data-testid`:
 ```
-browser_click → button:has-text("Continue")
+browser_click → [data-testid="publish-button"]
 browser_wait_for → time: 2
 ```
 This opens the "Publish" modal with Audience / Comments / Section / Tags /
@@ -118,34 +122,56 @@ Social preview / Delivery.
 The standardized list is `SUBSTACK_TAGS` in
 `src/dev_digest/utility/constants.py` (34 tags, applied to every post).
 
-The combobox needs to be in "open" state. The most reliable way:
+The tags input lost its `placeholder="Select or create tags"` attribute; the
+current selector is `[role="dialog"] input[role="combobox"]`.
 
+Type the first tag and submit:
 ```
-browser_type → [placeholder="Select or create tags"]
+browser_click → [role="dialog"] input[role="combobox"]
+browser_type  → [role="dialog"] input[role="combobox"]
   text: "AWS"
   submit: true
 ```
 
-This adds the first tag AND opens the dropdown (the listbox renders all 69+
-existing options). Then batch-click the remaining 33:
+**Add the remaining 33 by per-tag filter** (seen 2026-07-26 — the dropdown
+now filters aggressively on input; the old approach of typing once and then
+scanning `[role="option"]` for all 69+ existing tags returns 0 matches).
 
 ```
 browser_evaluate →
-  const targets = ['DevOps', 'Kubernetes', 'Security', 'Python', 'IaC',
-    'Containers', 'News', 'ML', 'MLOps', 'Agentic AI', 'AI', 'Bedrock', 'CDK',
-    'CI/CD', 'CLI', 'Claude', 'Cloud Engineering', 'Data Engineering',
-    'Data Pipeline', 'developers', 'Disaster Recovery', 'ETL', 'GenAI',
-    'Gemini', 'Github', 'GPT', 'Infrastructure As Code', 'SageMaker',
-    'Serverless', 'Software Engineering', 'software development', 'technology',
-    'Terraform'];
-  const clicked = [], missing = [];
-  for (const t of targets) {
-    const opt = [...document.querySelectorAll('[role="option"]')]
-      .find(o => o.textContent.trim() === t);
-    if (opt) { opt.click(); clicked.push(t); } else { missing.push(t); }
+  async () => {
+    const combo = document.querySelector('[role="dialog"] input[role="combobox"]');
+    const targets = ['DevOps', 'Kubernetes', 'Security', 'Python', 'IaC',
+      'Containers', 'News', 'ML', 'MLOps', 'Agentic AI', 'AI', 'Bedrock', 'CDK',
+      'CI/CD', 'CLI', 'Claude', 'Cloud Engineering', 'Data Engineering',
+      'Data Pipeline', 'developers', 'Disaster Recovery', 'ETL', 'GenAI',
+      'Gemini', 'Github', 'GPT', 'Infrastructure As Code', 'SageMaker',
+      'Serverless', 'Software Engineering', 'software development', 'technology',
+      'Terraform'];
+    const clicked = [], missing = [];
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const setValue = (el, val) => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+      setter.call(el, val);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    for (const t of targets) {
+      combo.focus();
+      setValue(combo, t);
+      await sleep(120);
+      const opt = [...document.querySelectorAll('[role="option"]')]
+        .find(o => o.textContent.trim() === t);
+      if (opt) { opt.click(); clicked.push(t); await sleep(50); }
+      else { missing.push(t); }
+      setValue(combo, '');
+      await sleep(50);
+    }
+    return { clicked: clicked.length, missing };
   }
-  return { clicked: clicked.length, missing };
 ```
+
+`setValue` uses the native descriptor setter so React sees the change; a plain
+`input.value = ''` gets ignored.
 
 **TRUST the `clicked: N` return value.** Tags are saved server-side even if
 the chip UI doesn't fully re-render. DO NOT retry — the second batch triggers

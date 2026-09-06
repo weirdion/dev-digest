@@ -13,7 +13,7 @@ Files in this directory
 - `preferences-log.md` — chronological log of heuristic / editorial changes and
   hard-won learnings. Append-only.
 
-Current state (as of 2026-06-07)
+Current state (as of 2026-09-06)
 --------------------------------
 The system is stable and the weekly cadence is:
 
@@ -28,12 +28,31 @@ The system is stable and the weekly cadence is:
 
 Recently verified (so a fresh session does not re-discover):
 
-- **$HOME path in `.mcp.json`** — works correctly for the persistent Playwright
-  profile (`~/.playwright-profiles/substack`). No need for an absolute path.
-- **Tag batch-click via `browser_evaluate`** — happy path for adding the 34 tags
-  in `SUBSTACK_TAGS` in one shot. TRUST the return value; do NOT retry. The chip
-  UI does not re-render after rapid synchronous `.click()` calls, but tags ARE
-  saved server-side. Confirmed across multiple sessions.
+- **Playwright profile path in `.mcp.json`** — uses an absolute path
+  (`/Users/ankitpatterson/.playwright-profiles/substack`) as of 2026-09-06.
+  `$HOME` in argv does NOT expand (Playwright CLI treats it as a literal
+  directory name), which silently created `./\$HOME/.playwright-profiles/` in
+  the repo root for months. That stray dir is gitignored (`$HOME/`,
+  `\$HOME/`) and being retired. Username in the path is not sensitive —
+  already public in git commits.
+- **New-post URL shortcut** (2026-06-21): `browser_navigate` to
+  `https://weirdion.substack.com/publish/post?type=newsletter` creates a fresh
+  draft and redirects to `/publish/post/<id>`. Preferred over the Create →
+  Article dropdown which sometimes fails to render the menu item. See
+  `publish.md` Step 2.
+- **Substack DOM churn** (2026-07-26) — three selector changes now live in
+  `publish.md`:
+  - Continue button: `[data-testid="publish-button"]` (text-match no longer
+    reliable).
+  - Tags input: `[role="dialog"] input[role="combobox"]` (placeholder attribute
+    was removed).
+  - Tag click: per-tag filter loop. The dropdown no longer renders all 69+
+    existing options after typing one tag — it filters aggressively. The batch
+    scan returns 0. New approach iterates tags, sets combobox value via the
+    native `HTMLInputElement.value` setter (so React sees the change), polls
+    `[role="option"]`, clicks, then clears. Full loop in `publish.md` Step 7.
+  - Cover image: click the first thumbnail in social preview; still needs an
+    explicit click even though Substack picks one automatically.
 - **Do NOT press Escape after the tag batch** — it closes the entire Publish
   dialog. Click the dialog heading or a neutral DOM element to dismiss the
   dropdown without losing the publish dialog state.
@@ -44,6 +63,19 @@ Recently verified (so a fresh session does not re-discover):
   body. If extraction fails, the bulletin is dropped. See
   `FeedHandler._extract_bulletin_date` and `preferences-log.md` entry for
   details.
+- **Bad summaries in top picks** — some feeds (CNCF, Kubernetes Blog) produce
+  descriptions like `"1."` or single-word content when the article's opening
+  is a numbered list. Seen on `ingress-NGINX retirement` and `Kubernetes
+  Dashboard → Headlamp`. If a top-pick item lands with a nonsense one-line
+  summary, hand-write a better blurb before publishing.
+- **Anthropic feed** — Anthropic does NOT publish RSS/Atom for news, research,
+  or engineering (verified 2026-06-21: all common paths 404, no
+  `<link rel="alternate">`, sitemap has no feed URLs). Options if the user
+  asks: skip, use an RSS bridge like RSSHub, or write a custom scraper.
+- **Runbook stability** (2026-08 → 2026-09-06): five consecutive weekly runs
+  first-try clean with the current `publish.md` selectors. No new Substack DOM
+  churn since the 2026-07-26 fixes. If a future run breaks, expect a testid or
+  role attribute to have shifted again.
 
 When starting a new conversation
 --------------------------------

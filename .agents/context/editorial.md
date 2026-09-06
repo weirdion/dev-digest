@@ -27,6 +27,15 @@ Top picks (Interesting Reads, 2 items)
 - AVOID: AWS DevOps Agent product blogs — they're a recurring offender
   (the model loves them; the reader does not). Cut every time, move to
   Infrastructure if the content is genuinely useful.
+- **Prefer engineer-focused stories over security-blog picks** (user pref,
+  2026-08-03). Real architecture / performance / release deep dives win;
+  security news is fine but goes in Security & Alerts, not top picks, unless
+  it's genuinely cross-industry (post-quantum crypto attack tier).
+- **Fix bad `"1."` / single-fragment summaries before publishing** — some
+  CNCF and Kubernetes Blog posts arrive with a description that's just `"1."`
+  or a nav-crumb because the article's opening is a numbered list. Seen on
+  `ingress-NGINX retirement` (2026-07-12) and `Kubernetes Dashboard to
+  Headlamp` (2026-07-19). Rewrite the blurb by hand before pasting.
 
 Section routing rules
 ---------------------
@@ -58,10 +67,20 @@ concrete benchmark or architectural decision:
 - **Beginner Real Python tutorials** (note-taking, Git basics, OOP intro, "How
   to flatten a list", plt.scatter, etc.) — not senior-engineer-worthy. The
   Real Python *monthly news* roundup IS worth keeping when it appears.
+- **RealPython "AI model vibe check" posts** (2026-09 pattern: "GPT-6 Astra
+  Draws a Python Reading a Book", "Claude Fable 5.1 Draws a Python Reading a
+  Book"). Fun but not senior-engineer content. Cut every time. Real Python's
+  Python 3.15 preview series and monthly news roundups ARE keeps.
 - **Vendor case studies using Bedrock / SageMaker / Nova** (Reco, Halliburton,
   Oldcastle, Synthesia, Aigen, Workhuman, NarrateAI for SMGS, etc.). KEEP only
   if there's a concrete benchmark (DocumentDB Graviton4 63% wins, HotelTrader
-  95% / 49%, etc.).
+  95% / 49%, Motorway 1-in-8 → 1-in-50, Outpost VFX 8x, etc.).
+- **Strands Agents / Bedrock AgentCore vendor case studies** — a recurring
+  bucket by mid-2026 (KTern SAP, Cohere Health clinical, Jefferies trading,
+  Stripe compliance, TReNDS RCA, Rocket Close, LendingTree mortgage,
+  monday.com AI Teammates, Thrad.ai, Smartsheet MCP, Loka Nova 2 voice, etc.).
+  Cut unless there's a concrete number (see above). Do keep AgentCore
+  *platform* posts (harness GA, runtime instances, temporal policies).
 - **AWS Nova ML tutorials** (video semantic search, text-to-SQL, hyper-
   personalized viewer, Stream Vision Agents). Marketing tutorials — cut.
 - **Partner Revenue Measurement / Partner Central RA entries**. Partner
@@ -111,6 +130,14 @@ Security section — incident-driven only
 - AWS DevOps Agent operational posts: cut on sight (recurring misroute).
 - Long-form security architecture guides (cyber resilience reference, DR
   approaches): move to Infrastructure.
+- **MCP-server + prompt-injection CVE clusters** — by mid-2026 AWS is
+  publishing 5-8 real CVEs per week around Strands Agents, AgentCore harness,
+  and MCP servers (DocumentDB, Transform, Amazon MQ, etc.). Keep all of them
+  during heavy weeks; the pattern itself is useful signal to the reader.
+- **Vendor "AI security" PR** (OpenAI Daybreak, Patch the Planet, Microsoft
+  AI security tools launches) — cut, or downgrade to a top pick only if it
+  covers a real disclosed incident (e.g., OpenAI/Hugging Face model eval
+  incident writeup).
 
 AWS Recent Announcements
 ------------------------

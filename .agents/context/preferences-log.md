@@ -147,6 +147,79 @@ Append new entries at the bottom with the date and the *why*. Cross-link to
 - Documented in `publish.md` Step 2 as the preferred path with the Create
   dropdown demoted to a fallback.
 
+2026-07-26 — Substack Publish-dialog DOM churn
+----------------------------------------------
+Three separate selector changes accumulated across the 2026-07 runs. All
+verified as of 2026-07-26 and mirrored into `publish.md`:
+- **Continue button** — text-match click on "Continue" no longer opens the
+  publish modal reliably. Use `[data-testid="publish-button"]`.
+- **Tags input** — lost its `placeholder="Select or create tags"` attribute.
+  Selector is now `[role="dialog"] input[role="combobox"]`.
+- **Tags dropdown** — no longer renders the full 69+ existing options after
+  typing one tag. It filters aggressively on input and empties when input is
+  cleared. The single-batch scan approach returns 0. New approach: iterate
+  tags, set combobox value via the native `HTMLInputElement.value` setter (so
+  React sees the change), poll `[role="option"]` for a match, click it, clear.
+  Full loop lives in `publish.md` Step 7. `input.value = ''` alone is ignored
+  by React.
+
+2026-08-09 — Rollup of mid-2026 patterns into editorial rules
+-------------------------------------------------------------
+Consolidated recurring patterns observed across ~10 weekly runs into
+`editorial.md` so a fresh agent picks them up during curation:
+- **Strands / AgentCore vendor case-study bucket**: added a dedicated cut-on-
+  sight rule (KTern, Cohere Health, Jefferies, Stripe, TReNDS, Rocket Close,
+  LendingTree, monday.com, Thrad.ai, Smartsheet, Loka Nova 2). Platform posts
+  (harness GA, runtime instances, temporal policies) still count.
+- **MCP-server + prompt-injection CVE clusters**: AWS is now publishing 5-8
+  real CVEs per week around Strands, AgentCore, and MCP servers. Rule: keep
+  them all during heavy weeks; the cluster itself is signal.
+- **Vendor "AI security" PR** (OpenAI Daybreak, Patch the Planet, Microsoft AI
+  security launches): downgrade to top-pick only when it covers a real
+  disclosed incident, otherwise cut.
+- **Engineer-focused top picks** (user pref 2026-08-03): security stories go
+  in Security & Alerts, not top picks, unless genuinely cross-industry
+  (post-quantum crypto attack tier). Real architecture / perf / release
+  deep dives win.
+- **Bad `"1."` / fragment summaries in top picks**: CNCF and K8s Blog
+  descriptions sometimes come through as just `"1."` when the article opens
+  with a numbered list (seen on `ingress-NGINX retirement`, `Kubernetes
+  Dashboard to Headlamp`). Rewrite the blurb by hand before pasting.
+
+Also refreshed `README.md` "Current state" to 2026-08-09 and rewrote the
+"recently verified" list to reflect the current Substack DOM reality (three
+selector fallbacks, new-post URL shortcut, Anthropic-has-no-RSS finding).
+
+2026-09-06 — Compact-ready checkpoint after 5-week stable run
+-------------------------------------------------------------
+- **Runbook stability confirmed**: five consecutive weekly runs (2026-08-09,
+  2026-08-23, 2026-08-30, 2026-09-06 — one week skipped) all first-try clean
+  with the current `publish.md` selectors. No new Substack DOM churn since
+  the 2026-07-26 fixes. Documented in README "Recently verified".
+- **New cut-on-sight pattern — RealPython AI vibe-check posts**: "GPT-6 Astra
+  Draws a Python Reading a Book" and "Claude Fable 5.1 Draws a Python
+  Reading a Book" both appeared 2026-09-06. Fun but not senior-engineer
+  content. Cut rule added to `editorial.md` under Cut-on-sight list. Real
+  Python's Python 3.15 preview series and monthly news roundups remain keeps.
+- **MCP-server CVE cluster continues**: 2026-09-06 shipped 8 real AWS CVEs
+  including postgres-mcp SQL bypass, dynamodb-mcp CDK-gen code injection,
+  EFS CSI ownership, ion-c/ion-java, CodeCatalyst blueprints, SageMaker SDK
+  HMAC, FPGA Dev Kit. Rule to keep the whole cluster in Security still
+  applies; the pattern itself is signal.
+- README "Current state" bumped to 2026-09-06.
+- **Playwright profile path bug fixed** (2026-09-06): `.mcp.json` used
+  `$HOME/.playwright-profiles/substack` on the assumption Playwright would
+  expand `$HOME` in argv. It doesn't — Playwright treated `$HOME` as a
+  literal directory name and created `./\$HOME/.playwright-profiles/` in the
+  repo root. The live Substack session ran from there for ~3 months without
+  anyone noticing. Fix: switched to absolute
+  `/Users/ankitpatterson/.playwright-profiles/substack`, copied the profile
+  to the real home dir, added `$HOME/` and `\$HOME/` to `.gitignore` (belt-
+  and-suspenders — the dir was never staged but this prevents accidents).
+  Username in the path is not sensitive (already public in git commits).
+  After the next `.mcp.json` reload (Claude Code restart), the in-repo
+  `$HOME/` can be deleted.
+
 How to add a new entry
 ----------------------
 - Date the entry (YYYY-MM-DD) and give it a short heading.
