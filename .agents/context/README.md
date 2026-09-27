@@ -13,7 +13,7 @@ Files in this directory
 - `preferences-log.md` — chronological log of heuristic / editorial changes and
   hard-won learnings. Append-only.
 
-Current state (as of 2026-09-06)
+Current state (as of 2026-09-27)
 --------------------------------
 The system is stable and the weekly cadence is:
 
@@ -29,12 +29,12 @@ The system is stable and the weekly cadence is:
 Recently verified (so a fresh session does not re-discover):
 
 - **Playwright profile path in `.mcp.json`** — uses an absolute path
-  (`/Users/ankitpatterson/.playwright-profiles/substack`) as of 2026-09-06.
-  `$HOME` in argv does NOT expand (Playwright CLI treats it as a literal
-  directory name), which silently created `./\$HOME/.playwright-profiles/` in
-  the repo root for months. That stray dir is gitignored (`$HOME/`,
-  `\$HOME/`) and being retired. Username in the path is not sensitive —
-  already public in git commits.
+  (`/Users/ankitpatterson/.playwright-profiles/substack`). Verified working
+  2026-09-20 and 2026-09-27 (session persisted, no re-login). The stray
+  in-repo `./\$HOME/` dir has been deleted; the `.gitignore` entries
+  (`$HOME/`, `\$HOME/`) stay as belt-and-suspenders. `$HOME` in argv does NOT
+  expand — Playwright treats it as a literal directory name. Username in the
+  path is not sensitive — already public in git commits.
 - **New-post URL shortcut** (2026-06-21): `browser_navigate` to
   `https://weirdion.substack.com/publish/post?type=newsletter` creates a fresh
   draft and redirects to `/publish/post/<id>`. Preferred over the Create →
@@ -72,10 +72,18 @@ Recently verified (so a fresh session does not re-discover):
   or engineering (verified 2026-06-21: all common paths 404, no
   `<link rel="alternate">`, sitemap has no feed URLs). Options if the user
   asks: skip, use an RSS bridge like RSSHub, or write a custom scraper.
-- **Runbook stability** (2026-08 → 2026-09-06): five consecutive weekly runs
+- **Runbook stability** (2026-08 → 2026-09-27): eight consecutive weekly runs
   first-try clean with the current `publish.md` selectors. No new Substack DOM
   churn since the 2026-07-26 fixes. If a future run breaks, expect a testid or
   role attribute to have shifted again.
+- **Paste verification** — after `Meta+v`, counting
+  `h2`/`h3`/`li` inside `[data-testid="editor"]` confirms the paste landed
+  before opening the publish dialog. Cheaper than a snapshot and catches a
+  silently-failed clipboard write. See `publish.md` Step 5.
+- **Tag chips now render fully** (2026-09-20, 2026-09-27) — all 34 chips
+  appear after the batch loop, not just the first two. The old "only 2 chips
+  visible" symptom appears to be gone, but the rule still stands: trust the
+  `clicked: N` return value and never retry.
 
 When starting a new conversation
 --------------------------------

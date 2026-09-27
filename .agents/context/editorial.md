@@ -31,6 +31,13 @@ Top picks (Interesting Reads, 2 items)
   2026-08-03). Real architecture / performance / release deep dives win;
   security news is fine but goes in Security & Alerts, not top picks, unless
   it's genuinely cross-industry (post-quantum crypto attack tier).
+- **GitHub Blog engineering posts lead the section** (user pref, 2026-09-06).
+  When a GitHub engineering post makes the cut, it goes first. They are
+  consistently the strongest read of the week (CSS-in-JS migration, Issues
+  performance work).
+- **AVOID CNCF event promos** — `event_promo_filter` does not catch every
+  shape. "Security Slam 2026 – Fall edition" scored into top picks on
+  2026-09-27. Any 30-day virtual event / KCD / KubeCon promo is a cut.
 - **Fix bad `"1."` / single-fragment summaries before publishing** — some
   CNCF and Kubernetes Blog posts arrive with a description that's just `"1."`
   or a nav-crumb because the article's opening is a numbered list. Seen on
@@ -78,9 +85,15 @@ concrete benchmark or architectural decision:
 - **Strands Agents / Bedrock AgentCore vendor case studies** — a recurring
   bucket by mid-2026 (KTern SAP, Cohere Health clinical, Jefferies trading,
   Stripe compliance, TReNDS RCA, Rocket Close, LendingTree mortgage,
-  monday.com AI Teammates, Thrad.ai, Smartsheet MCP, Loka Nova 2 voice, etc.).
+  monday.com AI Teammates, Thrad.ai, Smartsheet MCP, Loka Nova 2 voice,
+  Wood Mackenzie APEX, Reactiv, Trane, NarrateAI, Datacor, etc.).
   Cut unless there's a concrete number (see above). Do keep AgentCore
-  *platform* posts (harness GA, runtime instances, temporal policies).
+  *platform* posts (harness GA, runtime instances, temporal policies, the
+  new runtime, prompt optimization).
+  **A business metric is not a benchmark**: "80% less config time", "60x
+  faster insights", "21% productivity" are marketing outcomes, not
+  engineering numbers. Cut those. Keep throughput / latency / cost wins
+  measured against a baseline (MoE RL on EKS +40%, DocumentDB Graviton4 63%).
 - **AWS Nova ML tutorials** (video semantic search, text-to-SQL, hyper-
   personalized viewer, Stream Vision Agents). Marketing tutorials — cut.
 - **Partner Revenue Measurement / Partner Central RA entries**. Partner

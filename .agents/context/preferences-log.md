@@ -220,6 +220,44 @@ selector fallbacks, new-post URL shortcut, Anthropic-has-no-RSS finding).
   After the next `.mcp.json` reload (Claude Code restart), the in-repo
   `$HOME/` can be deleted.
 
+2026-09-27 — Compact-ready checkpoint (three-week rollup)
+---------------------------------------------------------
+Covers the 2026-09-13, 2026-09-20 and 2026-09-27 runs. All three first-try
+clean; no Substack DOM churn. Runbook stability now at eight consecutive runs.
+
+- **Playwright profile path fix verified**: the absolute path in `.mcp.json`
+  worked on both 2026-09-20 and 2026-09-27 with the session persisted and no
+  re-login. The stray in-repo `./\$HOME/` directory has been deleted. The
+  `.gitignore` entries stay as belt-and-suspenders.
+- **GitHub Blog leads the reads** (user pref, 2026-09-06, applied 2026-09-27):
+  when a GitHub engineering post makes the cut it goes first. Mirrored into
+  `editorial.md` top-picks rules — it had been carried in conversation only,
+  which is exactly the thing that gets lost on compact.
+- **CNCF event promos can beat `event_promo_filter`**: "Security Slam 2026 –
+  Fall edition" (a 30-day virtual event) scored into top picks on 2026-09-27.
+  Manual cut this week per the light-news / ≥3-week rule for heuristic
+  changes. If it recurs, add "security slam" to the filter terms. Cut rule
+  added to `editorial.md`.
+- **"A business metric is not a benchmark"**: the AgentCore vendor case-study
+  rule needed sharpening — Reactiv (80% less config time), Trane (60x faster
+  insights) and 1Password (21% productivity) all carry numbers, but they are
+  marketing outcomes, not engineering measurements. Rule now distinguishes
+  those from throughput / latency / cost wins against a baseline (MoE RL on
+  EKS +40%). Added names to the cut bucket: Wood Mackenzie APEX, Reactiv,
+  Trane, NarrateAI, Datacor.
+- **Paste verification added to the runbook** (`publish.md` Step 5): counting
+  `h2`/`h3`/`li` inside `[data-testid="editor"]` after `Meta+v` confirms the
+  body landed before opening the publish dialog.
+- **Tag chips render fully again**: all 34 chips appeared after the batch loop
+  on both 2026-09-20 and 2026-09-27, not just the first two. The "only 2 chips
+  visible" symptom looks gone, but the do-not-retry rule stands — the
+  `clicked: N` return value is still the source of truth.
+- **AgentCore / HyperPod volume is the new recurring noise shape**: mid-to-late
+  2026 weeks now carry 6-10 AWS ML Blog posts about AgentCore runtime,
+  HyperPod inference, and SageMaker RL tooling. Keep the platform posts and
+  anything with a measured win; cut the migration walkthroughs and tutorials.
+- README "Current state" bumped to 2026-09-27.
+
 How to add a new entry
 ----------------------
 - Date the entry (YYYY-MM-DD) and give it a short heading.

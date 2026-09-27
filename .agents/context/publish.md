@@ -102,6 +102,19 @@ browser_press_key → Meta+v
 browser_wait_for → time: 3
 ```
 
+Verify the paste landed before moving on — cheaper than a snapshot and it
+catches a silently-failed clipboard write:
+```
+browser_evaluate →
+  () => {
+    const e = document.querySelector('[data-testid="editor"]');
+    return { h2: e.querySelectorAll('h2').length,
+             h3: e.querySelectorAll('h3').length,
+             li: e.querySelectorAll('li').length };
+  }
+```
+Compare against the source HTML (`grep -c '<h2' file.html`, etc.).
+
 Substack's ProseMirror editor parses `<h2>`, `<h3>`, `<ul>`, `<li>`,
 `<strong>`, `<a href>` correctly. Plain-text markdown paste does NOT work.
 Escape `&` to `&amp;` in section headings to avoid sniff edge cases (the
