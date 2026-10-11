@@ -13,7 +13,7 @@ Files in this directory
 - `preferences-log.md` — chronological log of heuristic / editorial changes and
   hard-won learnings. Append-only.
 
-Current state (as of 2026-09-27)
+Current state (as of 2026-10-11)
 --------------------------------
 The system is stable and the weekly cadence is:
 
@@ -72,10 +72,16 @@ Recently verified (so a fresh session does not re-discover):
   or engineering (verified 2026-06-21: all common paths 404, no
   `<link rel="alternate">`, sitemap has no feed URLs). Options if the user
   asks: skip, use an RSS bridge like RSSHub, or write a custom scraper.
-- **Runbook stability** (2026-08 → 2026-09-27): eight consecutive weekly runs
-  first-try clean with the current `publish.md` selectors. No new Substack DOM
-  churn since the 2026-07-26 fixes. If a future run breaks, expect a testid or
-  role attribute to have shifted again.
+- **Runbook stability** — the eight-run clean streak (2026-08 → 2026-09-27)
+  ENDED on 2026-10-11 with two breakages: the section selector moved out of
+  the editor into the Publish dialog as a native `<select>`, and the Playwright
+  MCP arg shape changed from `ref` to `target`. Both are documented in
+  `publish.md` (Step 7b, Phase 4 preamble). Expect further churn; verify the
+  Publish dialog visually rather than trusting selector success.
+- **Real Python tutorials are down-ranked in code** (2026-10-11, `201d0a7`) —
+  `realpython_tutorial_penalty` in `scoring.py`. Lowers rank only; does not
+  reduce item count. Manual trims still needed. See `editorial.md` for the
+  rule and why a score floor was rejected.
 - **Paste verification** — after `Meta+v`, counting
   `h2`/`h3`/`li` inside `[data-testid="editor"]` confirms the paste landed
   before opening the publish dialog. Cheaper than a snapshot and catches a

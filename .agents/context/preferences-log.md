@@ -258,6 +258,53 @@ clean; no Substack DOM churn. Runbook stability now at eight consecutive runs.
   anything with a measured win; cut the migration walkthroughs and tutorials.
 - README "Current state" bumped to 2026-09-27.
 
+2026-10-11 — Real Python scoring penalty + Substack DOM churn
+-------------------------------------------------------------
+First run after a two-week gap (no 2026-10-04 run). 147 items, unusually
+strong engineering week. Published 7 sections / 30 items.
+
+- **Real Python down-ranked in code** (commit `201d0a7`). Crossed the
+  >=3-week threshold from `prompt.md`: manual trims were needed on 09-13,
+  09-20 and 09-27, and on 10-11 "What Can I Do With Python?" took a top-pick
+  slot. 8 of 22 Real Python items had scored in across three sections.
+  The design constraint that shaped it: **keeper shapes score in the same
+  band as the tutorials** (keepers 28.3-49.4, tutorials 32.6-41.2, measured
+  across all 25 historical runs), so a host-wide penalty or a score floor
+  would kill the monthly news roundups at 28.3. Title shape is the only
+  separable signal. Implemented as allow-patterns (version previews, monthly
+  roundups, PEP coverage) taking precedence over penalty-patterns, scoped to
+  realpython.com only — `\bin python\b` is far too broad for other hosts.
+  Verified against all 110 distinct Real Python titles ever included:
+  89 penalized, 20 kept, zero false positives. 4 tests added.
+  **Known limitation, deliberate**: the penalty lowers rank but does not
+  reduce item count, because a section below `PER_SECTION_CAP` evicts
+  nothing. Manual trims remain part of curation. Do not "fix" this by
+  raising the penalty.
+- **Self-review caught two defects in the change before commit**: a comment
+  citing a "2026-10-04" run that never happened, and a bare `\bvs\b` pattern
+  that would have penalized a benchmarked "Polars vs pandas" comparison
+  (narrowed to the "which is better/best" opinion framing).
+- **Substack DOM churn — section selector moved.** Clicking "Choose a
+  section" in the editor now opens the File Settings sidebar; the section is
+  set in the Publish dialog instead, and it is a **native `<select>`** where
+  clicking the option text fails silently. Needs the
+  `HTMLSelectElement.value` setter + `change` event — same React trick as the
+  tags combobox. Caught only by screenshot; the dialog's radio-input state
+  does not reveal it. New Step 7b in `publish.md`, plus a Known symptom.
+  This breaks the eight-run clean streak (2026-08 -> 2026-09-27).
+- **Playwright MCP arg shape changed**: `browser_click` / `browser_type` take
+  `target`, not `ref`. Every click/type in the runbook as previously written
+  failed validation. Noted at the top of Phase 4 with the `ToolSearch` recipe
+  for re-checking the live schema.
+- **Screenshots land in the repo root**, not `.playwright-mcp/`, so the
+  gitignore does not cover them. Public repo — always `rm -f *.png` and
+  confirm `git status --short` before finishing. Added to Step 9.
+- **Curation note**: Python 3.15.0 final (Python Insider) took the second
+  top-pick slot over the originally-proposed Firecracker post — it only
+  surfaced once the Real Python penalty cleared the slot. GitHub's Git
+  infrastructure rebuild led, per the standing rule. Dev Tools was dropped
+  entirely rather than kept alive by a lone tutorial.
+
 How to add a new entry
 ----------------------
 - Date the entry (YYYY-MM-DD) and give it a short heading.

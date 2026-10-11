@@ -78,6 +78,16 @@ concrete benchmark or architectural decision:
   Draws a Python Reading a Book", "Claude Fable 5.1 Draws a Python Reading a
   Book"). Fun but not senior-engineer content. Cut every time. Real Python's
   Python 3.15 preview series and monthly news roundups ARE keeps.
+- **Real Python is now partly handled in code** (2026-10-11, commit `201d0a7`):
+  `realpython_tutorial_penalty` (-22) down-ranks tutorial-shaped titles via
+  `is_realpython_tutorial` in `scoring.py`. Keeper shapes (version previews,
+  monthly roundups, PEP coverage) are allow-listed and unaffected.
+  **The penalty lowers rank; it does not remove items.** A section under
+  `PER_SECTION_CAP` (8) evicts nothing, so Real Python tutorials will still
+  appear in thin sections and STILL need manual cuts. What the penalty
+  guarantees is that they cannot take a top-pick slot. Do not raise the
+  number to try to make them disappear — a score floor was evaluated and
+  rejected because the keeper band (28.3-49.4) overlaps the tutorial band.
 - **Vendor case studies using Bedrock / SageMaker / Nova** (Reco, Halliburton,
   Oldcastle, Synthesia, Aigen, Workhuman, NarrateAI for SMGS, etc.). KEEP only
   if there's a concrete benchmark (DocumentDB Graviton4 63% wins, HotelTrader

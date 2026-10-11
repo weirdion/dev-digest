@@ -49,6 +49,15 @@ the browser the MCP server launches.
 **ALWAYS stop before clicking "Send to everyone now"**. The user verifies and
 publishes manually.
 
+**Tool argument shape** (2026-10-11): `browser_click` / `browser_type` take
+`target`, NOT `ref`. Passing `ref` fails with
+`Invalid input: expected string, received undefined -> at target`. The
+`X → selector` notation below means `target: "<selector>"`. If the call errors
+on arguments, re-check the live schema with
+`ToolSearch("select:mcp__playwright__browser_type,mcp__playwright__browser_click")`
+rather than guessing — the MCP build's schema is the source of truth, not this
+file.
+
 ### Step 1 — Navigate to dashboard
 ```
 browser_navigate → https://weirdion.substack.com/publish/home
@@ -70,13 +79,18 @@ browser_click → text=Create
 browser_click → text=Article
 ```
 
-### Step 3 — Set section
+### Step 3 — Set section (DEFERRED to Step 7b)
+
+**Do not set the section here.** As of 2026-10-11 clicking "Choose a section"
+in the editor opens the **File Settings sidebar**, not a section dropdown — the
+old sequence below no longer works:
 ```
-browser_click → text=Choose a section
-browser_click → text=Developer Newsletter
-browser_evaluate → () => document.querySelector('.file-sidebar-header-button')?.click()
+# BROKEN 2026-10-11, kept for recognition only:
+#   browser_click → text=Choose a section      <- opens File Settings sidebar
+#   browser_click → text=Developer Newsletter  <- never found
 ```
-The last line closes the sidebar that opens after section selection.
+If you land in that sidebar, close it by clicking its `Done` button, then
+carry on. The section is set in the Publish dialog instead — see Step 7b.
 
 ### Step 4 — Fill title and subtitle
 ```
@@ -194,6 +208,38 @@ takes many `browser_handle_dialog` calls to drain.
 If the user wants to verify the chips, they can refresh the page and reopen
 the Publish dialog — all 34 chips will render correctly from server state.
 
+### Step 7b — Set section (moved here 2026-10-11)
+
+The Publish dialog has a "This post belongs in…" field. It is a **native
+`<select>`**, not a listbox — clicking the option text does nothing and fails
+silently, leaving the post in no section. Set it via the native value setter,
+the same React trick used for the tags combobox:
+
+```
+browser_evaluate →
+  () => {
+    const d = document.querySelector('[role="dialog"]');
+    const sel = d.querySelector('select');
+    const match = [...sel.options]
+      .find(o => o.textContent.trim() === 'Developer Newsletter');
+    if (!match) return { error: 'option missing',
+                         opts: [...sel.options].map(o => o.textContent.trim()) };
+    const setter = Object.getOwnPropertyDescriptor(
+      HTMLSelectElement.prototype, 'value').set;
+    setter.call(sel, match.value);
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+    return { set: match.value, label: match.textContent.trim() };
+  }
+```
+
+Expect `{ set: "265611", label: "Developer Newsletter" }`. The section id has
+been stable, but match on the label rather than hardcoding the id.
+
+**Verify this one visually.** The dialog's radio-input state does not reflect
+the select, so the only reliable confirmation that the section took is a
+screenshot showing "Developer Newsletter" instead of "Choose a section...".
+A run that skips this check can publish to the wrong section.
+
 ### Step 8 — Set social preview cover image
 
 **DO NOT press Escape** to close the tag dropdown — it closes the entire
@@ -232,16 +278,22 @@ will match a non-exact selector.)
 ### Step 9 — STOP
 
 Take a screenshot to confirm everything is set:
-- ✅ Section: Developer Newsletter
+- ✅ Section: reads "Developer Newsletter", NOT "Choose a section..."
+      (the one field that fails silently — see Step 7b)
 - ✅ Audience: Everyone
 - ✅ Comments: Everyone
-- ✅ Tags: AWS + Serverless chips visible (other 32 saved server-side)
+- ✅ Tags: chips rendered (all 34 since 2026-09-20; if only the first 2 show,
+      that is the old symptom and still fine — trust `clicked: N`, never retry)
 - ✅ Social preview shows correct title + subtitle + cover image
 - ✅ "Send to everyone now" button is present and enabled
 
-Hand off to the user. Do NOT click "Send to everyone now". Delete any
-screenshot artifacts (`*.png`) before ending the session — `.playwright-mcp/`
-is already gitignored.
+Hand off to the user. Do NOT click "Send to everyone now".
+
+**Clean up screenshots before ending the session.** `browser_take_screenshot`
+with a `filename` writes to the **repo root**, not `.playwright-mcp/` (seen
+2026-10-11) — so the gitignore does NOT cover it and a stray `.png` will show
+up in `git status` on a public repo. Always `rm -f <name>.png` and confirm with
+`git status --short` before finishing.
 
 Known symptoms and how to interpret them
 ----------------------------------------
@@ -258,3 +310,10 @@ Known symptoms and how to interpret them
 - **Cover image not auto-selected** — Substack picks one of the two
   thumbnails on first publish; you have to explicitly click the first
   thumbnail to set the developer-at-laptop cover for the newsletter brand.
+  The thumbnails are both 40x40, and the SECOND one is the author avatar —
+  do not pick it. Confirm by asset id: the large 460x241 preview image shares
+  its id with whichever thumbnail is selected (e.g. both `...l5Zs!...`), so
+  compare the `src` fragments rather than trusting position alone.
+- **Section silently not set** — the Publish dialog's "This post belongs in…"
+  is a native `<select>`; clicking the option text does nothing. See Step 7b.
+  Symptom: the field still reads "Choose a section..." in the screenshot.
