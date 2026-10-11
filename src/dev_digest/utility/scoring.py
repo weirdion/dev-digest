@@ -21,6 +21,8 @@ from dev_digest.utility.constants import (
     AI_POLICY_TERMS,
     AI_POLICY_HOSTS,
     AI_FINANCE_TERMS,
+    REALPYTHON_KEEP_PATTERNS,
+    REALPYTHON_TUTORIAL_PATTERNS,
 )
 
 GA_TERMS = ("generally available", "general availability", "ga ", "ga:", "stable release", "v1.0")
@@ -36,6 +38,24 @@ GOVERNMENT_TERMS = ("education", "schools", "policy", "partnership")
 NEG_WEBINAR_TERMS = ("webinar", "podcast", "training", "certification", "partner", "regional", "kubecon", "co-located event", "community days", "summer of code")
 NEG_TLS_TERMS = ("tls policy", "post-quantum")
 RA_STRONG_TERMS = ("ga", "generally available", "security", "cve", "deprecat", "breaking")
+
+_REALPYTHON_KEEP_RE = tuple(re.compile(p, re.IGNORECASE) for p in REALPYTHON_KEEP_PATTERNS)
+_REALPYTHON_TUTORIAL_RE = tuple(re.compile(p, re.IGNORECASE) for p in REALPYTHON_TUTORIAL_PATTERNS)
+
+
+def is_realpython_tutorial(title: str, host: str) -> bool:
+    """True for Real Python's beginner/intermediate tutorial shapes.
+
+    Keeper patterns (version previews, monthly news roundups, PEP coverage) take
+    precedence: they score in the same band as the tutorials, so the only
+    separable signal is title shape. Non-Real-Python hosts are never matched --
+    "in python" is far too broad to apply generally.
+    """
+    if not host.endswith("realpython.com"):
+        return False
+    if any(rx.search(title) for rx in _REALPYTHON_KEEP_RE):
+        return False
+    return any(rx.search(title) for rx in _REALPYTHON_TUTORIAL_RE)
 
 
 @dataclass(frozen=True)
@@ -64,6 +84,7 @@ class HeuristicConfig:
     ra_low_signal_penalty: float
     region_penalty: float
     tls_penalty: float
+    realpython_tutorial_penalty: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -117,6 +138,7 @@ DETERMINISTIC_PROFILE = ScoreProfile(
         ra_low_signal_penalty=0,
         region_penalty=0,
         tls_penalty=0,
+        realpython_tutorial_penalty=22,
     ),
     blend=ScoreBlend(heuristic_weight=0.7, model_weight=0.3, fallback_to_heuristic=False),
 )
@@ -148,6 +170,7 @@ AI_PROFILE = ScoreProfile(
         ra_low_signal_penalty=18,
         region_penalty=16,
         tls_penalty=10,
+        realpython_tutorial_penalty=22,
     ),
     blend=ScoreBlend(heuristic_weight=0.4, model_weight=0.6, fallback_to_heuristic=False),
 )
@@ -230,6 +253,8 @@ def compute_heuristic_score(candidate: DigestCandidate, config: HeuristicConfig)
                 score -= config.policy_penalty
             if any(term in title_lower for term in AI_FINANCE_TERMS) or any(term in summary_lower for term in AI_FINANCE_TERMS):
                 score -= config.finance_penalty
+        if config.realpython_tutorial_penalty and is_realpython_tutorial(candidate.title or "", host_lower):
+            score -= config.realpython_tutorial_penalty
 
     if any(term in title_lower for term in ("ec2", "instance", "compute")):
         score += 6

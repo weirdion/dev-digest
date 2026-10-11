@@ -192,3 +192,60 @@ PARTNER_PROGRAM_TERMS = [
     "service ready",
     "competency",
 ]
+
+# Real Python tutorial down-ranking (2026-10-11)
+# Real Python publishes ~20 items/week, mostly beginner/intermediate tutorials.
+# Across the 2026-09-13, 2026-09-20 and 2026-09-27 runs these needed manual
+# trims every week, and on 2026-10-11 one took a top-pick slot ("What Can I Do
+# With Python?"), which is what triggered the scoring change. The
+# keeper shapes (version-preview series, monthly news roundups) score in the same
+# 28-49 band as the tutorials, so a host-wide penalty is not separable -- these
+# patterns target title shape instead. Allow patterns win over penalty patterns.
+REALPYTHON_KEEP_PATTERNS = [
+    # Version coverage: "Python 3.15 Preview: frozendict", "Python 3.14: Cool
+    # New Features for You to Try", "What's New in Python 3.14".
+    r"python\s+\d+\.\d+",
+    # Monthly news roundup: "... and Other Python News for August 2026",
+    # "Python's JIT Faces Some Challenges and Other News for July 2026".
+    r"\band other\s+(python\s+)?news\b",
+    # PEP / standards coverage: "Tool-Agnostic Python Lock Files With PEP 751".
+    r"\bpep[\s-]*\d+",
+]
+
+REALPYTHON_TUTORIAL_PATTERNS = [
+    # Instructional lead-ins.
+    r"^how (to|long|do|does)\b",
+    r"^what (can|is|are|does|exactly)\b",
+    r"^when (should|to)\b",
+    r"^(why|where)\b",
+    r"^(using|implementing|exploring|validating|sending|writing|automate|build|get started)\b",
+    r"^(primer|learning path|learn from|tutorial)\b",
+    r"^an? (effective|close look|new python)\b",
+    # "<Topic> in Python", "<Topic> in Python: ...", "<X> With Python".
+    r"\bin python\b",
+    r"\bwith python\b",
+    r"\bfor python\b",
+    # Guides and fundamentals.
+    r":\s*(a|the)\b.*\b(guide|tutorial|basics|primer|introduction)\b",
+    r"\b(complete guide|a guide|basics|fundamentals|first steps|beginner)\b",
+    # Editor/tool bake-offs: "Cursor vs Copilot", "Gemini CLI vs Claude Code".
+    # Deliberately NOT a bare r"\bvs\b" -- a library comparison with real
+    # benchmarks ("Polars vs pandas") can be worth keeping, so this only matches
+    # the "which is better/best for X" framing that marks the opinion pieces.
+    r"\bvs\.?\b.*\bwhich (is|one|to)\b",
+    r"\bwhich (ai )?(editor|tool|code editor) is (better|best)\b",
+    # The recurring AI vibe-check series.
+    r"draws a python reading a book",
+    # Career / learning-path content.
+    r"\b(get you hired|study schedule|learning roadmap|learn python)\b",
+    # "Python's deque: Implement Efficient Queues", "Python Classes: The Power
+    # of OOP", "Django Tasks: Exploring the Built-in Tasks Framework" -- the
+    # "<Subject>: <gerund/verb phrase>" explainer shape. Anchored on the colon
+    # so it cannot reach a "Python 3.15 Preview:" title (already allow-listed).
+    r"^[^:]{0,40}:\s*(implement|exploring|connect|convert|try out|the power|what are|how to|a |an |your )",
+    # Stdlib/builtin explainers: "Python sleep()", "Python Inner Functions",
+    # "Python Practice Problems", "The Python Standard REPL".
+    r"^(the\s+)?python(\'s)?\s+(standard\s+)?(repl|sleep|inner|practice|classes|built-in|builtin|deque|mcp\b)",
+    # Recurring Real Python idioms for style/teaching pieces.
+    r"\b(the pythonic way|best practices|explained)\b",
+]

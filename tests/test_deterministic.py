@@ -383,3 +383,71 @@ def test_infrastructure_release_handling(tmp_path):
     assert "v1.14.0-beta1" not in md
     reasons = [d.reason for d in diag if "v1.14.0-beta1" in d.title]
     assert "release_prerelease" in reasons
+
+
+class TestRealPythonTutorialPenalty:
+    """Real Python down-ranking (2026-10-11).
+
+    The keeper shapes score in the same band as the tutorials, so title shape is
+    the only separable signal. These tests pin the precedence and host scoping.
+    """
+
+    def test_tutorial_shapes_are_penalized(self):
+        from dev_digest.utility.scoring import is_realpython_tutorial
+
+        for title in (
+            "What Can I Do With Python?",
+            "How to Flatten a List of Lists in Python",
+            "Namespaces in Python",
+            "Python for Loops: The Pythonic Way",
+            "Modern Web Automation With Python and Selenium",
+            "Functional Programming in Python: When and How to Use It",
+            "Cursor vs Copilot: Which AI Editor Is Better for Python?",
+            "Claude Fable 5.1 Draws a Python Reading a Book",
+            "Python's deque: Implement Efficient Queues and Stacks",
+        ):
+            assert is_realpython_tutorial(title, "realpython.com"), title
+
+    def test_keeper_shapes_survive(self):
+        """Version previews, monthly roundups and PEP coverage must not be hit."""
+        from dev_digest.utility.scoring import is_realpython_tutorial
+
+        for title in (
+            "Python 3.15 Preview: frozendict",
+            "Python 3.15 Preview: Lazy Imports",
+            "Python 3.14: Cool New Features for You to Try",
+            "MCP Gets Its Biggest Rewrite and Other Python News for August 2026",
+            "pandas 3.0 Lands Breaking Changes and Other Python News for February 2026",
+            "Python's JIT Faces Some Challenges and Other News for July 2026",
+            "Tool-Agnostic Python Lock Files With PEP 751 and pylock.toml",
+        ):
+            assert not is_realpython_tutorial(title, "realpython.com"), title
+
+    def test_other_hosts_are_never_matched(self):
+        """"in python" is far too broad to apply outside realpython.com."""
+        from dev_digest.utility.scoring import is_realpython_tutorial
+
+        assert not is_realpython_tutorial("How to scale Kubernetes in Python", "github.blog")
+        assert not is_realpython_tutorial("Namespaces in Python", "blog.python.org")
+
+    def test_penalty_lowers_score_but_keeper_is_unchanged(self):
+        from dev_digest.model import DigestCandidate
+        from dev_digest.utility.scoring import DETERMINISTIC_PROFILE, compute_heuristic_score
+
+        def score(title):
+            return compute_heuristic_score(
+                DigestCandidate(
+                    title=title,
+                    link=f"https://realpython.com/{title[:10]}/",
+                    canonical_url=f"https://realpython.com/{title[:10]}",
+                    summary="",
+                    source="Real Python",
+                    published=None,
+                ),
+                DETERMINISTIC_PROFILE.heuristic,
+            )
+
+        tutorial = "Namespaces in Python"
+        keeper = "Python 3.15 Preview: frozendict"
+        # The keeper must outrank the tutorial once the penalty applies.
+        assert score(keeper) > score(tutorial)
