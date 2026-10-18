@@ -164,6 +164,18 @@ Security section — incident-driven only
 
 AWS Recent Announcements
 ------------------------
+- **The per-severity cap can bury the week's biggest launch.** On 2026-10-18
+  five AWS End User Messaging registration items filled Medium Impact while
+  Lambda Web Functions (a new Lambda function type), the Durable Execution Go
+  SDK and both Security Hub items were cut by `aws_ra_cap` — all scoring
+  higher. The cap is severity-scoped, so one noisy service family crowds out
+  real launches at the same severity. **Check `debug_ranking.json` for
+  `aws_ra_cap` / `aws_ra_section` exclusions before accepting the generated RA
+  section**, and rebuild it by hand when a launch-grade item was capped.
+- **Validate anything transcribed from diagnostics.** Rebuilding the RA
+  section by hand on 2026-10-18 produced an invented URL, a truncated title
+  and seven wrong dates. Cross-check every URL and date against
+  `debug_ranking.json` before converting to HTML.
 - Classify by severity (Critical / High / Medium / Low) rather than cutting.
 - Limit pure-regional updates (new Local Zones, region expansions) — Low or cut.
 - Limit quota updates — Low.

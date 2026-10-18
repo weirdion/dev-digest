@@ -305,6 +305,60 @@ strong engineering week. Published 7 sections / 30 items.
   infrastructure rebuild led, per the standing rule. Dev Tools was dropped
   entirely rather than kept alive by a lone tutorial.
 
+2026-10-18 — Real Python classifier leaks; RA cap buried the week's top launch
+-------------------------------------------------------------------------------
+159 items, 8 sections / 33 items published. Runbook clean on all selectors
+(first clean run since the 2026-10-11 churn).
+
+- **Three Real Python shapes leak past `is_realpython_tutorial`** — and they
+  were the three *highest*-scoring RP items of the week, all manually cut:
+  - "Python Histogram Plotting: NumPy, Matplotlib, pandas & Seaborn" (44.7) —
+    the colon pattern expects a verb/gerund after the colon; this is a bare
+    noun list.
+  - "Python's Instance, Class, and Static Methods Demystified" (43.3) —
+    "demystified" is not in the idiom list (only "explained"), and the
+    `python's\s+...` stdlib pattern does not include "instance".
+  - "Python's Mutable vs Immutable Types: What's the Difference?" (41.2) —
+    `^what (can|is|...)` is anchored at string start, so a trailing
+    "What's the Difference?" never matches.
+  **No code change this week**, per the `prompt.md` >=3-week rule: this is
+  week one of observing these specific shapes and the penalty itself is only
+  one run old. Logged so the pattern can be confirmed rather than guessed at.
+  If these recur on 2026-10-25 and 2026-11-01, the fixes are narrow: add
+  "demystified" to the idiom alternation, allow a noun-list after the colon,
+  and un-anchor the "what ..." interrogative when it follows a colon.
+- **The per-severity RA cap buried the week's biggest launch.** AWS Lambda
+  Web Functions (a new Lambda function type, 31.9) was cut by `aws_ra_cap`
+  while five AWS End User Messaging registration-workflow items occupied
+  Medium Impact. Durable Execution SDK for Go (41.8) and both Security Hub
+  items (41.8 / 39.6) were also capped out. Manual rebuild of the RA section
+  from `debug_ranking.json` this week. Worth watching: the cap is severity-
+  scoped, so a single noisy service family can crowd out genuine launches at
+  the same severity. If it recurs, the lever is per-source diversity within
+  a severity block, not a bigger cap.
+- **Both generated top picks failed `editorial.md`** — a Tamnoon/Bedrock
+  vendor case study with no benchmark, and a CNCF Kyverno post whose summary
+  was the nav fragment "Nirmata created Kyverno and donated it to the CNCF in
+  2020". Replaced with GitHub's star-history rebuild (2,500 -> 24 requests;
+  leads per the standing GitHub rule) and the Lambda Web Functions launch.
+- **Hand-transcribed metadata is unreliable; validate it.** Rebuilding the RA
+  section by hand introduced one invented URL, one truncated title ("15
+  instance types" for 135) and seven wrong dates. A scripted cross-check of
+  every URL and date against `debug_ranking.json` caught all of them. Do this
+  every time the curation pulls items from diagnostics rather than the
+  generated markdown.
+- **Screenshot path restriction changed (good news).** `browser_take_screenshot`
+  now *rejects* paths outside the repo and `.playwright-mcp/`
+  ("File access denied ... outside allowed roots"), so the 2026-10-11
+  repo-root leak is no longer possible via an absolute path. Writing to
+  `.playwright-mcp/` explicitly is now the documented approach — it is
+  gitignored. Still confirm `git status --short` before finishing.
+- **Two single-item sections shipped deliberately** (Dev Tools & Languages:
+  Python 3.16.0 alpha 1; ML & AI: DeepMind on-device scam detection). The
+  2026-10-11 precedent dropped a one-item Dev Tools section, but that item
+  was a tutorial; a release milestone and a real technical piece both earn
+  their place over burial in Misc.
+
 How to add a new entry
 ----------------------
 - Date the entry (YYYY-MM-DD) and give it a short heading.

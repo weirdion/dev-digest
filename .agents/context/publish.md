@@ -268,6 +268,13 @@ browser_evaluate →
   (btn || imgs[0]).click();
 ```
 
+Before clicking, list the images with their `naturalWidth/Height` and `src`
+tail. Both thumbnails are 40x40 and only the `src` asset id distinguishes
+them. After clicking, re-list: the selected cover appears as a 460x241
+preview **sharing its asset id** with the clicked thumbnail, and the avatar
+keeps its own id. That comparison is the reliable confirmation (verified
+2026-10-11 and 2026-10-18).
+
 Then save:
 ```
 browser_click → text="Save"
@@ -289,11 +296,13 @@ Take a screenshot to confirm everything is set:
 
 Hand off to the user. Do NOT click "Send to everyone now".
 
-**Clean up screenshots before ending the session.** `browser_take_screenshot`
-with a `filename` writes to the **repo root**, not `.playwright-mcp/` (seen
-2026-10-11) — so the gitignore does NOT cover it and a stray `.png` will show
-up in `git status` on a public repo. Always `rm -f <name>.png` and confirm with
-`git status --short` before finishing.
+**Clean up screenshots before ending the session.** As of 2026-10-18 the MCP
+build restricts screenshot output to the repo and `.playwright-mcp/` — an
+absolute path elsewhere fails with `File access denied ... outside allowed
+roots`. Pass an explicit `.playwright-mcp/<name>.png` (that directory IS
+gitignored). On 2026-10-11 a bare `filename` landed in the **repo root**,
+which the gitignore does NOT cover, so still `rm -f` what you wrote and
+confirm with `git status --short` before finishing — this is a public repo.
 
 Known symptoms and how to interpret them
 ----------------------------------------
