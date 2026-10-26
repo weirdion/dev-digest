@@ -65,6 +65,14 @@ Section caps and overflow
 - Per-section cap is in `constants.PER_SECTION_CAP` (8).
 - If a practical / engineering post exceeds the cap, it overflows to Misc
   rather than getting dropped.
+- **A flat cap over a mixed-source section silently drops the minority
+  source.** Two consecutive weeks, two different caps, same failure:
+  `aws_ra_cap` buried launch-grade RA items behind a noisy service family
+  (2026-10-18), then `PER_SECTION_CAP` cut *every* Ars Technica incident from
+  Security because 11 AWS bulletins filled the section (2026-10-26). **Query
+  `debug_ranking.json` for exclusions before accepting any capped section**,
+  not just the RA one. If this recurs a third time, the lever is per-source
+  diversity within a cap, not a bigger cap.
 
 Cut on sight (recurring noise patterns)
 ----------------------------------------
@@ -84,10 +92,20 @@ concrete benchmark or architectural decision:
   monthly roundups, PEP coverage) are allow-listed and unaffected.
   **The penalty lowers rank; it does not remove items.** A section under
   `PER_SECTION_CAP` (8) evicts nothing, so Real Python tutorials will still
-  appear in thin sections and STILL need manual cuts. What the penalty
-  guarantees is that they cannot take a top-pick slot. Do not raise the
+  appear in thin sections and STILL need manual cuts. Do not raise the
   number to try to make them disappear — a score floor was evaluated and
   rejected because the keeper band (28.3-49.4) overlaps the tutorial band.
+  **Top-pick protection is enforced separately** (2026-10-26): the top-pick
+  loop calls `is_realpython_tutorial` directly. Until then it relied on an
+  ad-hoc keyword list and a "Part 3" tutorial led the 2026-10-26 digest, so
+  the old claim that the penalty alone guaranteed this was wrong.
+- **The classifier leaks a different set of title shapes every week** — 3 of
+  8 RP titles were caught on 2026-10-26, and the five that leaked were not
+  the three shapes logged on 2026-10-18. Expect to cut RP by hand every week
+  regardless of what the patterns say. **Do not keep adding regexes**: if the
+  leaks recur, switch to a host-level rule (RP ineligible for top picks, hard
+  per-section cap unless a keeper pattern matches), which survives shape
+  drift. See `preferences-log.md` 2026-10-26.
 - **Vendor case studies using Bedrock / SageMaker / Nova** (Reco, Halliburton,
   Oldcastle, Synthesia, Aigen, Workhuman, NarrateAI for SMGS, etc.). KEEP only
   if there's a concrete benchmark (DocumentDB Graviton4 63% wins, HotelTrader
@@ -150,6 +168,14 @@ Security section — incident-driven only
 ---------------------------------------
 - Items MUST have an incident marker (CVE, exploit, attack, malware, breach,
   patch). Operational how-tos default back to AWS & Cloud.
+- **Never let AWS bulletins crowd out real-world incidents.** On 2026-10-26
+  the generated section was 8/8 AWS bulletins and the cap excluded all 8 Ars
+  Technica items, among them the eMudhra CA compromise, PHP2Shell active
+  exploitation and 333 hijacked Tor exit nodes. Check the excluded Ars items
+  every week and rebuild the section by hand when an industry-wide incident
+  was cut. Where a bulletin and an outside story share a root cause, place
+  them together — the AWS eMudhra bulletin next to the two eMudhra stories
+  reads far better than either alone.
 - AWS DevOps Agent operational posts: cut on sight (recurring misroute).
 - Long-form security architecture guides (cyber resilience reference, DR
   approaches): move to Infrastructure.

@@ -451,3 +451,32 @@ class TestRealPythonTutorialPenalty:
         keeper = "Python 3.15 Preview: frozendict"
         # The keeper must outrank the tutorial once the penalty applies.
         assert score(keeper) > score(tutorial)
+
+    def test_tutorial_never_takes_a_top_pick_slot(self, tmp_path):
+        """The penalty only lowers rank, so a thin week can still float a
+        tutorial to the top of the featured pool (seen 2026-10-26: "Python REST
+        APIs With Flask, Connexion, and SQLAlchemy - Part 3" led the digest).
+        The top-pick loop's keyword list misses shapes the classifier catches,
+        so it gates on the classifier as well.
+        """
+        det = DeterministicDigest(top_picks=2)
+        run_dir = _mk_run_dir(tmp_path)
+        now = datetime(2025, 1, 1, tzinfo=timezone.utc)
+        items = [
+            FeedEntry(
+                title="Namespaces in Python",
+                link="https://realpython.com/python-namespaces/",
+                published=now,
+                source="Real Python",
+                summary="A tutorial on namespaces.",
+            ),
+            FeedEntry(
+                title="Cloudflare: deep postmortem",
+                link="https://blog.cloudflare.com/postmortem-xyz",
+                published=now,
+                source="Cloudflare Blog",
+                summary="postmortem",
+            ),
+        ]
+        _md, diag = det.generate(items, run_dir)
+        assert not any(d.featured_top_pick and d.source == "Real Python" for d in diag)

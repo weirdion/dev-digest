@@ -359,6 +359,87 @@ strong engineering week. Published 7 sections / 30 items.
   was a tutorial; a release milestone and a real technical piece both earn
   their place over burial in Misc.
 
+2026-10-26 — RP tutorial took a top-pick slot (code fix); security cap buried the week's real incidents
+--------------------------------------------------------------------------------------------------------
+167 items, 8 sections / 56 items published. Runbook clean on every selector for
+the second consecutive run.
+
+- **A Real Python tutorial led the digest — the one thing the penalty was
+  supposed to prevent.** "Python REST APIs With Flask, Connexion, and
+  SQLAlchemy – Part 3" (39.1) was selected as top pick #1. `editorial.md`
+  claims the penalty "guarantees they cannot take a top-pick slot"; that was
+  false. The top-pick loop in `DeterministicDigest.py` filtered on its own
+  ad-hoc keyword list ("primer", "beginner", "how to", "tutorial",
+  "introduction") and never called `is_realpython_tutorial` — the classifier
+  written for exactly this. A "Part 3" title contains none of those keywords.
+  **Fixed in code** (not deferred under the >=3-week rule): this is a
+  correctness bug in a documented guarantee, not heuristic taste. The loop now
+  also gates on the classifier, with a regression test
+  (`test_tutorial_never_takes_a_top_pick_slot`) that was confirmed to fail
+  without the fix.
+- **The RP classifier still leaks, now at 5 of 8 titles — week two.** Caught
+  this week: "Logging in Python", "Python Code Quality: Best Practices and
+  Tools", "Python's asyncio: A Hands-On Walkthrough". Leaked: the Flask Part 3
+  series title, "Python's with Statement: Manage External Resources Safely",
+  "Python Modules and Packages – An Introduction", "Python String Formatting:
+  Available Tools and Their Features", "Alexa Python Development: Build and
+  Deploy an Alexa Skill". Note these are *different* shapes from the three
+  logged on 2026-10-18 (noun-list-after-colon, "Demystified", trailing
+  "What's the Difference?"), which did not recur. The leaking set varies
+  week to week, which is itself the finding: chasing individual title shapes
+  is losing to Real Python's title variety. **If this recurs on 2026-11-01,
+  do not add a sixth regex** — consider a host-level rule (e.g. Real Python
+  items are ineligible for top picks and capped at N per section unless they
+  match a keeper pattern), which is robust to shape drift in a way the
+  pattern list is not.
+  The "<Series> – Part N" shape was checked against the archive and appears
+  only twice ever (2026-06-07, 2026-10-26), so it was cut by hand rather than
+  pattern-matched.
+- **`PER_SECTION_CAP` cut every real-world security incident of the week.**
+  The Security section generated as 8/8 AWS bulletins, and the cap excluded
+  all 8 Ars Technica items — including the eMudhra/emSign CA compromise
+  (8 fraudulently issued TLS certs, the CA exiting the TLS business), the
+  PHP2Shell exploitation with a four-day head start on patches, and 333
+  hijacked Tor exit nodes MITM-ing SSH. `editorial.md` says to always keep
+  "real CVEs, active exploits, supply chain attacks". The cap is a flat
+  per-section count with no notion of source diversity, so one high-volume
+  feed (AWS bulletins, 11 items) can evict an entire category of signal.
+  Rebuilt the section by hand to 16 items, interleaving the Ars incidents
+  with the related AWS bulletins — notably the eMudhra bulletin
+  (CVE-2026-111943) sits directly beside the two Ars stories on the same
+  root cause, which is the version a reader actually wants.
+  **This is the same structural failure as 2026-10-18's `aws_ra_cap`**, one
+  section over. Two weeks running, two different caps, same shape: a flat cap
+  over a mixed-source section silently drops the minority source. If it
+  happens a third time, the fix is per-source diversity inside a cap, not
+  bigger caps.
+- **The RA cap again buried launch-grade items.** Amazon ECS Gateway (a
+  managed ingress solution for ECS) and TorchNeuron (native PyTorch on
+  Trainium, public beta) were cut by `aws_ra_cap` while Direct Connect
+  regional 100G expansions and Connect agent-workspace layout tweaks were
+  included. Rebuilt the RA section from `debug_ranking.json`. Note the scores
+  actively mislead here: ECS Gateway scored 19.3 and the Manchester Direct
+  Connect expansion 26.3 — the heuristic rates a regional expansion above a
+  new managed ingress product.
+- **Hand-transcription errors recurred — the validator earned its keep again.**
+  Three invented Ars Technica URLs (guessed from headlines rather than read
+  from diagnostics). All three real slugs differed, and one was under
+  `/information-technology/` rather than `/security/`. The scripted
+  URL+date cross-check caught all three before conversion; 0 unknown URLs and
+  0 date mismatches after the fix. Do not hand-write a URL, ever — copy it
+  from `debug_ranking.json`.
+- **`stillSaysChoose: true` is a false alarm on the section field.** A naive
+  `innerText` regex for "Choose a section" matches the collapsed `<select>`'s
+  placeholder `<option value="-1">` even when a real section is selected.
+  The reliable checks are `sel.selectedIndex` / `selectedLabel` plus a text
+  walk that skips nodes inside `select`. Verified this run: placeholder
+  present but unselected, phrase absent from rendered UI, screenshot shows
+  "Developer Newsletter".
+- **One deliberate single-item section**: Dev Tools & Languages (Python
+  3.15.1 / 3.14.9 / 3.13.17 security releases). Consistent with the
+  2026-10-18 precedent — a release milestone earns its heading; the Real
+  Python tutorials that would have padded this section were the cuts.
+
 How to add a new entry
 ----------------------
 - Date the entry (YYYY-MM-DD) and give it a short heading.

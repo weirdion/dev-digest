@@ -13,7 +13,7 @@ Files in this directory
 - `preferences-log.md` — chronological log of heuristic / editorial changes and
   hard-won learnings. Append-only.
 
-Current state (as of 2026-10-18)
+Current state (as of 2026-10-26)
 --------------------------------
 The system is stable and the weekly cadence is:
 
@@ -76,18 +76,26 @@ Recently verified (so a fresh session does not re-discover):
   ENDED on 2026-10-11 with two breakages: the section selector moved out of
   the editor into the Publish dialog as a native `<select>`, and the Playwright
   MCP arg shape changed from `ref` to `target`. Both are documented in
-  `publish.md` (Step 7b, Phase 4 preamble). 2026-10-18 ran clean on all
-  selectors including the new Step 7b, so the fixes hold — but that is one
-  run, not a new streak. Keep verifying the Publish dialog visually rather
-  than trusting selector success.
+  `publish.md` (Step 7b, Phase 4 preamble). 2026-10-18 and 2026-10-26 both
+  ran clean on all selectors including the new Step 7b — two runs, so the
+  fixes hold, but still short of the old eight-run streak. Keep verifying the
+  Publish dialog visually rather than trusting selector success.
 - **Real Python tutorials are down-ranked in code** (2026-10-11, `201d0a7`) —
   `realpython_tutorial_penalty` in `scoring.py`. Lowers rank only; does not
   reduce item count. Manual trims still needed. See `editorial.md` for the
-  rule and why a score floor was rejected. **Three title shapes leak past the
-  classifier** (noun-list after colon, "Demystified", trailing "What's the
-  Difference?") — observed once on 2026-10-18, under the >=3-week threshold,
-  so no code change yet. Details and the narrow fixes are in
-  `preferences-log.md`.
+  rule and why a score floor was rejected. **The leaking title shapes change
+  week to week** (3 of 8 caught on 2026-10-26; a different set leaked than on
+  2026-10-18), so plan on manual RP cuts every week and do not add more
+  regexes — see `editorial.md` for the host-level rule to switch to if it
+  recurs.
+- **Top picks now gate on `is_realpython_tutorial`** (2026-10-26) — the loop
+  in `DeterministicDigest.py` previously used only an ad-hoc keyword list, and
+  a "Part 3" Real Python tutorial led the 2026-10-26 digest. Covered by
+  `test_tutorial_never_takes_a_top_pick_slot`.
+- **Caps drop the minority source in a mixed-source section** — `aws_ra_cap`
+  on 2026-10-18, `PER_SECTION_CAP` on Security on 2026-10-26 (every Ars
+  Technica incident cut in favour of 11 AWS bulletins). Always check
+  `debug_ranking.json` exclusions before accepting a capped section.
 - **Screenshots are now confined to the repo / `.playwright-mcp/`**
   (2026-10-18) — `browser_take_screenshot` rejects absolute paths outside
   those roots, so the 2026-10-11 repo-root leak can no longer happen that

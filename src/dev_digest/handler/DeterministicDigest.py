@@ -24,6 +24,7 @@ from dev_digest.utility.tools import canonicalize_url, normalize_text
 from dev_digest.utility.scoring import (
     classify_recent_announcement,
     get_profile,
+    is_realpython_tutorial,
     score_candidate,
 )
 from dev_digest.utility.sections import ordered_sections, resolve_section
@@ -543,6 +544,12 @@ class DeterministicDigest:
             if any(term in title_lower for term in ["kubecon", "cloudnativecon", "conference", "summit", "event day", "open source securitycon"]):
                 continue
             host = canonicalize_url(item.link).split("//", 1)[-1].split("/", 1)[0]
+            # The tutorial penalty only lowers rank, so in a thin week a Real
+            # Python tutorial can still top the pool. The keyword list above
+            # misses shapes the classifier catches (and vice versa), so gate on
+            # the classifier too -- a tutorial must never take a top-pick slot.
+            if is_realpython_tutorial(item.title, host):
+                continue
             if host in seen_hosts:
                 continue
             featured.append(item)

@@ -240,6 +240,15 @@ the select, so the only reliable confirmation that the section took is a
 screenshot showing "Developer Newsletter" instead of "Choose a section...".
 A run that skips this check can publish to the wrong section.
 
+**Do not test for the section with a text match on the dialog** (2026-10-26):
+`/Choose a section/.test(dialog.innerText)` returns true even on a correctly
+set section, because it matches the collapsed `<select>`'s unselected
+placeholder `<option value="-1">Choose a section...</option>`. That looks
+exactly like the silent-failure symptom and will send you chasing a
+non-existent bug. Check `sel.selectedIndex` and
+`sel.options[sel.selectedIndex].textContent` instead, and if you do walk the
+text, skip nodes whose `parentElement.closest('select')` is non-null.
+
 ### Step 8 — Set social preview cover image
 
 **DO NOT press Escape** to close the tag dropdown — it closes the entire
