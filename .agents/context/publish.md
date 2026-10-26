@@ -27,6 +27,14 @@ be:
 When the user approves, edit the markdown directly. Do not write the curation
 to a new file — overwrite the generated markdown in place.
 
+**This is a hard stop, not a formality** (missed on 2026-10-26). Do not run
+Phase 3 until the user has seen and approved the curation. Present: the two
+top picks with the reason for any replacement, every section rebuilt by hand
+and why, and the notable cuts. A clean run that reaches Substack without the
+user having seen the editorial calls has skipped a gate, even though it stops
+correctly at "Send to everyone now" — that rule guards the *send*, not the
+*curation*.
+
 Phase 3 — Convert
 -----------------
 ```

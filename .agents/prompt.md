@@ -14,6 +14,11 @@ Operating principles
   - `.agents/context/preferences-log.md` — chronological log of changes/learnings
 - For heuristic vs manual tuning: in light-news weeks, bias toward manual trims.
   Reserve scoring changes for recurring patterns (≥3 weeks in a row).
+  **Propose scoring / selection changes before shipping them** — show the
+  finding and the diff and let the user decide. This holds even when the
+  change looks like a plain bug fix rather than tuning: on 2026-10-26 a
+  top-pick selection fix was committed and pushed unasked on exactly that
+  reasoning. Finding a real bug is a reason to raise it, not to skip the user.
 - Editorial taste belongs in the README/context files, not in conversation memory.
   When the user steers a new preference, append it to `preferences-log.md`.
 
