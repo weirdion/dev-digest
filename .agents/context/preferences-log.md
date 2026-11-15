@@ -544,6 +544,78 @@ Other notes from this run:
   appeared, missing `technology`. Did not retry, per the runbook. Flagged to
   the user to confirm from server state after a refresh.
 
+2026-11-15 — Both new mechanisms worked unaided; the RP classifier is the gap now
+--------------------------------------------------------------------------------
+7-day window, 230 items in, 65 bullets published across 8 sections (40 items
+plus 25 AWS Recent Announcements). Runbook clean on every selector for the
+fourth consecutive run.
+
+**The 2026-11-09 code changes did their job with no manual rescue.** Security
+generated as **5 bulletins + 2 Ars Technica** — exactly the
+`PER_SOURCE_SECTION_SHARE` ceiling — and for the first time an Ars incident
+placed on its own score rather than by hand: the Windows 0-day at **43.9**,
+above three bulletins. The prior three weeks were 8/8, 7/8 and 7/8 wipeouts.
+Both mechanisms are now considered working; keep the weekly exclusion check.
+
+**New top-pick failure mode: the classifier, not the gate.** A Real Python
+tutorial ("Scientific Python: Using SciPy for Optimization") scored **53.8 —
+the highest item of the week** — and led the newsletter. The 2026-10-26
+top-pick gate did not fire because `is_realpython_tutorial` **did not flag
+it**: "Scientific Python: Using SciPy for Optimization" matches no existing
+pattern. The gate is sound; the classifier it calls is the weak link.
+Replaced with the RDS PostgreSQL Graviton5 benchmark post (a documented
+keep-shape). Per the standing rule, **no sixth regex was added.**
+
+**Classifier recall fell to 4 of 19** (from 7/10 on 2026-11-09, 3/8 on
+2026-10-26). Nine RP items fell out on score alone (quizzes and interview
+practice at 0.0), not on classification. Fourth consecutive week of shape
+drift. `editorial.md` already prescribes the host-level rule as the fix when
+this recurs; this week is the clearest evidence yet that the pattern list is
+losing. Worth proposing next cycle.
+
+**`aws_ra_cap` buried launch-grade items for the fourth week running.**
+Published RA contained Connect case-merging and SageMaker "layout
+customization for designations" while these were cut: Amazon EKS Auto Mode
+security groups for Pods (**39.6, highest cut RA item, classified *low***),
+Aurora/RDS Graviton5 R9g instances (29.9), DocumentDB Serverless +35%
+throughput (29.7), EKS Auto Mode + Karpenter DRA (29.7), OpenSearch managed
+cross-Region DR (28.4), Cloud WAN BGP communities (34.8), Route 53 record set
+protection (29.2), CloudWatch Logs account-level retention (26.3), Glue
+automatic Spark upgrades (30.6), Cognito OAuth 2.0 token exchange (25.7), S3
+Access Grants cross-account listing (26.3), STS cross-partition federation
+(26.3). Rebuilt by hand and reclassified. **The severity classifier is also
+miscalibrated** — EKS security groups for Pods marked *low*, Aurora
+express-config CloudFormation marked *high*. This is a 4-week pattern and
+qualifies for a scoring proposal; deliberately not shipped this week, to be
+raised separately per `prompt.md`.
+
+**User decisions this run**: keep the "Claude Code is accidentally exposing
+secrets all over GitHub" story (Ars, 2026-11-09), and allow Security to run
+to **9 items** rather than holding at 8. Both Grok Build and Claude Code
+agent-secret-leak stories were placed adjacent per the shared-root-cause rule.
+
+**The tag that did not render last week rendered this week.** All 34 chips
+appeared, `technology` included, verified by label match in the dialog. The
+2026-11-09 miss was a one-off rendering artifact, not a persistent bug. The
+"trust `clicked: N`, never retry" rule stands.
+
+Other notes:
+- **Validation caught two dates I got wrong**, both on items pulled from the
+  exclusion list (Cloud WAN Flow Logs and the Aurora MySQL 63955 fix, both
+  2026-11-14, written as 2026-11-12). Diagnostics exclusion queries should
+  print `published` alongside score — the earlier query did not, which is how
+  the guesses crept in. 0 unknown URLs, 0 title mismatches, 0 duplicates.
+- Hand-wrote blurbs for both Gemini 4 Hydrogen items (the DeepMind post
+  shipped with an empty description), per the bad-summary rule.
+- Cut as usual: Nvidia CEO affair story, Ring AI drone, FAA air traffic,
+  OpenAI "takeover months away", ChatGPT Wallet, JioStar, caregivers
+  workshop, "Platform engineering needs to become more human", five
+  AgentCore/Bedrock vendor how-tos with no benchmarks, Thermo Fisher and
+  GS Caltex case studies, three RP tutorials.
+- Misc disappeared entirely this week — everything in it was either cut as
+  vendor content or routed to a real section. Kubernetes/Containers grew
+  3 → 6.
+
 How to add a new entry
 ----------------------
 - Date the entry (YYYY-MM-DD) and give it a short heading.
