@@ -480,3 +480,128 @@ class TestRealPythonTutorialPenalty:
         ]
         _md, diag = det.generate(items, run_dir)
         assert not any(d.featured_top_pick and d.source == "Real Python" for d in diag)
+
+
+class TestPerSourceSectionShare:
+    """One verbose source must not take a whole capped section (2026-11-09).
+
+    AWS Security Bulletins score 40-53 on boilerplate while plain-English
+    incident headlines score 4-26, so a score-ordered slice rendered Security
+    as 8/8 bulletins on 2026-10-26 and 7/8 on 2026-11-09, cutting every
+    real-world incident in both runs.
+    """
+
+    def _bulletins_and_incidents(self, n_bulletins: int, n_incidents: int):
+        now = datetime(2025, 1, 1, tzinfo=timezone.utc)
+        items = []
+        subjects = ["Redshift JDBC", "Babelfish", "GluonTS archive", "Iceberg SQL",
+                    "APT package manager", "Firecracker memory", "the EKS policy agent",
+                    "Amplify maplibre", "Athena query processing", "SAM CLI", "MQTT adapter"]
+        targets = ["a crypto exchange", "UEFI firmware", "Tor exit nodes",
+                   "an editor extension", "Android TV boxes", "federal personnel records"]
+        for i in range(n_bulletins):
+            items.append(
+                FeedEntry(
+                    title=f"CVE-2025-{1000 + i} - Privilege escalation in {subjects[i]}",
+                    link=f"https://aws.amazon.com/security/security-bulletins/rss/{i}-aws/",
+                    published=now,
+                    source="Security Bulletins",
+                    summary="Bulletin ID: AWS. Content Type: Important. CVE patch available.",
+                )
+            )
+        for i in range(n_incidents):
+            items.append(
+                FeedEntry(
+                    title=f"Hackers exploited a zero-day to breach {targets[i]}",
+                    link=f"https://arstechnica.com/security/2025/01/breach-{i}/",
+                    published=now,
+                    source="Security - Ars Technica",
+                    summary="An active exploit campaign against production systems.",
+                )
+            )
+        return items
+
+    def _security(self, diag):
+        return [d for d in diag if d.included and d.section == "Security & Alerts"]
+
+    def test_one_source_cannot_fill_a_capped_section(self, tmp_path):
+        det = DeterministicDigest(per_section_cap=8, per_source_section_share=5)
+        items = self._bulletins_and_incidents(n_bulletins=11, n_incidents=6)
+        _md, diag = det.generate(items, _mk_run_dir(tmp_path))
+        sec = self._security(diag)
+        bulletins = [d for d in sec if d.source == "Security Bulletins"]
+        incidents = [d for d in sec if d.source == "Security - Ars Technica"]
+        assert len(bulletins) <= 5, f"bulletins took {len(bulletins)} slots"
+        assert incidents, "every real-world incident was evicted"
+
+    def test_dominant_source_still_fills_when_alone(self, tmp_path):
+        """The share limit must not shorten a section that has only one source."""
+        det = DeterministicDigest(per_section_cap=8, per_source_section_share=5)
+        items = self._bulletins_and_incidents(n_bulletins=11, n_incidents=0)
+        _md, diag = det.generate(items, _mk_run_dir(tmp_path))
+        assert len(self._security(diag)) == 8
+
+
+class TestSecurityIncidentScoring:
+    """Real-world incidents must score comparably to vendor bulletins.
+
+    Every AWS bulletin title carries a "CVE-" token and so always earned the
+    security bonus, while a plain-English incident headline earned nothing:
+    on 2026-11-09 the $6.3bn Binance heist scored 8.6 and a UEFI bootkit
+    defeating fully-patched Windows scored 17.1, against bulletins at 40-53.
+    """
+
+    def _score(self, title, summary=""):
+        from dev_digest.model import DigestCandidate
+        from dev_digest.utility.scoring import DETERMINISTIC_PROFILE, compute_heuristic_score
+
+        return compute_heuristic_score(
+            DigestCandidate(
+                title=title,
+                link="https://arstechnica.com/security/2026/11/x/",
+                canonical_url="https://arstechnica.com/security/2026/11/x",
+                summary=summary,
+                source="Security - Ars Technica",
+                published=None,
+            ),
+            DETERMINISTIC_PROFILE.heuristic,
+        )
+
+    def _bulletin(self, title):
+        from dev_digest.model import DigestCandidate
+        from dev_digest.utility.scoring import DETERMINISTIC_PROFILE, compute_heuristic_score
+
+        return compute_heuristic_score(
+            DigestCandidate(
+                title=title,
+                link="https://aws.amazon.com/security/security-bulletins/rss/1-aws/",
+                canonical_url="https://aws.amazon.com/security/security-bulletins/rss/1-aws",
+                summary="Bulletin ID: AWS. Content Type: Important.",
+                source="Security Bulletins",
+                published=None,
+            ),
+            DETERMINISTIC_PROFILE.heuristic,
+        )
+
+    def test_incident_headline_without_cve_scores(self):
+        """The headline shapes that scored near-zero before the 2026-11-09 fix."""
+        for title in (
+            "Hackers steal $6.3 billion from Binance in record crypto heist",
+            "UEFI bootkit infected fully patched Windows machines",
+            "Google dismantles botnet secretly running on 1.3 million Android TV boxes",
+            "Massive leak exposes 41,000 DHS workers and undercover ICE agents",
+            "Anthropic VS code extension on Cursor backdoored for nearly 12 hours",
+        ):
+            assert self._score(title) > 0, title
+
+    def test_incident_is_competitive_with_routine_bulletin(self):
+        incident = self._score("Hackers steal $6.3 billion from Binance in record crypto heist")
+        bulletin = self._bulletin("CVE-2026-121652 - Stored cross-site scripting (XSS) in AWS Amplify")
+        # A record-breaking theft need not outrank every bulletin, but it must
+        # not be an order of magnitude below one routine XSS advisory.
+        assert incident >= bulletin * 0.5, f"incident={incident} bulletin={bulletin}"
+
+    def test_scale_bonus_requires_an_incident(self):
+        """A number alone must not buy the bonus -- plenty of marketing copy has one."""
+        plain = self._score("Our platform now serves 1.3 million customers")
+        assert plain == 0, plain

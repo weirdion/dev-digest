@@ -460,6 +460,90 @@ the second consecutive run.
   proposal with the diff, and let the user decide whether it ships this week.**
   The user kept both the commit and the draft this time.
 
+2026-11-09 — Cap strike three; fixed the scorer underneath it (two code changes)
+--------------------------------------------------------------------------------
+14-day window (no run on 2026-11-01), 274 items in, 56 published across 7
+sections. Runbook clean on every selector for the third consecutive run.
+
+**The cap failure recurred a third time, worse than before.** Security
+generated as 7/8 AWS bulletins and `PER_SECTION_CAP` cut all 11 Ars Technica
+incidents: the $6.3bn Binance heist, a UEFI bootkit defeating fully-patched
+Windows, a backdoored Anthropic VS Code extension, 333 hijacked Tor exit
+nodes, 41,000 leaked DHS/ICE records. `aws_ra_cap` separately buried **Aurora
+MySQL 8.4.10 GA** — the literal example `editorial.md` gives for always-keep —
+and `aws_ra_section` dropped the top-scoring RA item of the fortnight
+(Security Hub SBOM inventory, 46.0). Both sections rebuilt by hand.
+
+**Backtesting killed the plan we started with.** Round-robin-by-source (one
+item per source in turn) was the candidate fix. It repaired Security on
+2026-10-26 but did real damage elsewhere: on 2026-11-09 it admitted an Istio
+post scoring **0.0** into Dev Tools and a 6.4 item into ML & AI, and on
+2026-10-18 it dropped a 37.5 piece to admit a re:Invent attendee guide that
+`editorial.md` explicitly cuts. One-item-per-source is too blunt when a
+source is legitimately dominant. **Do not revive it.**
+
+**What the backtest revealed instead: the cap was never the root cause.**
+Every diversity variant still admitted junk on 2026-11-09, because the
+top-scoring non-bulletin items that week were a Trump policy story and OpenAI
+vendor PR. The stories that mattered scored at the bottom. Measured against
+the hand-curated section: my keeps spanned **4.3 to 25.7**, and the single
+item I cut scored **25.7 — tied highest**. Score and editorial value were
+uncorrelated for that source. A diversity rule just picks the best of a
+mis-sorted list.
+
+Two changes shipped, in this order (user approved option 3 = both):
+
+1. **`PER_SOURCE_SECTION_SHARE = 5`** (`constants.py`, `_apply_section_cap`
+   in `DeterministicDigest.py`). Items are still taken in score order; one is
+   deferred only when its source already holds 5 of the 8 slots AND another
+   source is still waiting. Unclaimed slots are backfilled, so a section
+   genuinely dominated by one source is left exactly as it was. This is a
+   floor, not a fix — it stops an 8/8 wipeout, it does not choose well.
+   Verified live: Security went 7 bulletins -> exactly 5.
+2. **Incident scoring** (`SECURITY_INCIDENT_TERMS`, `SECURITY_SCALE_PATTERNS`,
+   `security_scale=8`). The +26 security bonus required a literal
+   `cve-`/`security`/`0-day` token. Every bulletin title carries one; a
+   plain-English incident headline carries none. Also **ungated the existing
+   impact bonus**, which sat inside the CVE check and was unreachable for
+   non-CVE items — "actively exploited" earned nothing unless the item also
+   said CVE. Effect this week: Binance 8.6 -> 25.4, UEFI bootkit 17.1 -> 35.3,
+   DHS leak 6.4 -> 30.2, Chainalysis 25.7 -> 43.9. The set moved from 4-26
+   into 22-44, comparable to bulletins at 41-53.
+
+Backtested against 2026-10-18 and 2026-10-26: five items re-scored, all
+correct — eMudhra, PHP2Shell and the Tor hijack all went 0 -> 26, exactly the
+items rescued by hand those weeks. One apparent bulletin regression (26 -> 0)
+was an artifact of the comparison harness passing an empty summary; with its
+real summary it still scores 26.0.
+
+Tests: 38 passing. Five new across `TestPerSourceSectionShare` and
+`TestSecurityIncidentScoring`, each confirmed to fail without its fix, plus a
+guard that a bare number cannot buy the scale bonus (marketing copy saying
+"1.3 million customers" must score 0).
+
+**Known limitation.** This week's Security section still renders 7 items with
+1 Ars item, because 29 candidates competed for 8 slots. Both mechanisms work;
+neither manufactures slots. If 14-day windows become normal, revisit
+`PER_SECTION_CAP` itself — but that is one data point, not a pattern.
+
+Other notes from this run:
+- **Real Python**: classifier caught 7 of 10 (up from 3 of 8), and **no RP
+  item reached a top pick** — the 2026-10-26 top-pick gate held. Six tutorials
+  still published into Dev Tools and were cut by hand, as expected.
+- **Both generated top picks replaced again** (third week running): a kpt
+  v1.0.0 release note and an AgentCore how-to. Used GitHub's Git storage
+  architecture (standing GitHub-leads rule) and OpenKruise agent sandboxing.
+  Note GitHub scored 27.8 — 15th overall — while a CNCF release note led at
+  42.4. The top-pick scorer has the same mis-ordering problem as Security;
+  worth examining if it recurs.
+- **Validation passed first try** (0 unknown URLs, 0 date mismatches) by
+  copying every URL from `debug_ranking.json` rather than typing any. It did
+  catch one title I had truncated, dropping "in AWS SDK for pandas" — the
+  part telling a reader whether it affects them. Check titles, not just URLs.
+- **One tag did not render**: the loop reported 34 clicked but only 33 chips
+  appeared, missing `technology`. Did not retry, per the runbook. Flagged to
+  the user to confirm from server state after a refresh.
+
 How to add a new entry
 ----------------------
 - Date the entry (YYYY-MM-DD) and give it a short heading.

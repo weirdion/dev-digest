@@ -17,6 +17,8 @@ from dev_digest.utility.constants import (
     PRACTICAL_TERMS,
     PERFORMANCE_WIN_PATTERNS,
     SECURITY_IMPACT_PATTERNS,
+    SECURITY_INCIDENT_TERMS,
+    SECURITY_SCALE_PATTERNS,
     PARTNER_PROGRAM_TERMS,
     AI_POLICY_TERMS,
     AI_POLICY_HOSTS,
@@ -85,6 +87,7 @@ class HeuristicConfig:
     region_penalty: float
     tls_penalty: float
     realpython_tutorial_penalty: float = 0.0
+    security_scale: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -139,6 +142,7 @@ DETERMINISTIC_PROFILE = ScoreProfile(
         region_penalty=0,
         tls_penalty=0,
         realpython_tutorial_penalty=22,
+        security_scale=8,
     ),
     blend=ScoreBlend(heuristic_weight=0.7, model_weight=0.3, fallback_to_heuristic=False),
 )
@@ -213,12 +217,22 @@ def compute_heuristic_score(candidate: DigestCandidate, config: HeuristicConfig)
         score += config.preview
     if any(term in title_lower for term in POSTMORTEM_TERMS):
         score += config.postmortem
-    if "cve-" in title_lower or "cve-" in summary_lower or any(term in title_lower for term in SECURITY_TERMS):
+    # A vendor bulletin always carries a "CVE-" token; a real-world incident
+    # headline usually carries none, so it needs its own route to the bonus or
+    # it scores near zero against bulletin boilerplate (see 2026-11-09).
+    text = f"{title_lower} {summary_lower}"
+    is_cve = "cve-" in title_lower or "cve-" in summary_lower
+    is_incident = any(term in text for term in SECURITY_INCIDENT_TERMS)
+    if is_cve or is_incident or any(term in title_lower for term in SECURITY_TERMS):
         score += config.security
-        # Boost security items with quantified impact (downloads, victims, etc.)
-        text = f"{title_lower} {summary_lower}"
+        # Quantified impact (downloads, victims, active exploitation). Applies
+        # to incidents too, not just CVEs -- it used to sit inside the CVE gate.
         if any(re.search(pattern, text, re.IGNORECASE) for pattern in SECURITY_IMPACT_PATTERNS):
             score += 3
+        # Scale is the clearest signal a reader cares, and it is what these
+        # headlines lead with ("$6.3 billion", "1.3 million devices").
+        if is_incident and any(re.search(p, text, re.IGNORECASE) for p in SECURITY_SCALE_PATTERNS):
+            score += config.security_scale
     if any(term in title_lower for term in DEPRECATION_TERMS):
         score += config.deprecation
     if any(term in title_lower for term in PERFORMANCE_TERMS):

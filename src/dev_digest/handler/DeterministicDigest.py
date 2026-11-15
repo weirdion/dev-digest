@@ -18,6 +18,7 @@ from dev_digest.utility.constants import (
     PRACTICAL_TERMS,
     AI_POLICY_TERMS,
     AI_POLICY_HOSTS,
+    PER_SOURCE_SECTION_SHARE,
 )
 from dev_digest.utility.security import strip_html_to_text
 from dev_digest.utility.tools import canonicalize_url, normalize_text
@@ -44,10 +45,12 @@ class DeterministicDigest:
     def __init__(self,
                  per_section_cap: int = 8,
                  max_total: int = 50,
-                 top_picks: int = 2) -> None:
+                 top_picks: int = 2,
+                 per_source_section_share: int = PER_SOURCE_SECTION_SHARE) -> None:
         self.per_section_cap = per_section_cap
         self.max_total = max_total
         self.top_picks = top_picks
+        self.per_source_section_share = per_source_section_share
         self.scoring_profile = get_profile("deterministic")
         self.ra_section_caps: Dict[str, int | None] = {
             "critical": 5,
@@ -97,6 +100,49 @@ class DeterministicDigest:
     def _is_overflow_worthy(self, item: DigestItem) -> bool:
         """Check if item should be preserved via overflow routing."""
         return self._has_practical_signal(item) or self._has_performance_win(item)
+
+    def _apply_section_cap(self, merged: List[DigestItem], cap: int) -> Tuple[List[DigestItem], List[DigestItem]]:
+        """Trim a section to `cap`, limiting how much of it one source can take.
+
+        A straight score-ordered slice lets a verbose feed evict a whole
+        category: AWS Security Bulletins score 40-53 on boilerplate while a
+        plain-English incident headline scores 4-26, so Security rendered as
+        8/8 bulletins on 2026-10-26 and 7/8 on 2026-11-09, cutting every
+        real-world incident in both runs.
+
+        Items are still taken in score order; one is only deferred when its
+        source already holds `per_source_section_share` slots AND some other
+        source is still waiting. Deferred items are backfilled by score, so a
+        section genuinely dominated by one source is left as it was.
+        """
+        share = self.per_source_section_share
+        if not share or share >= cap:
+            return merged[:cap], merged[cap:]
+
+        used: DefaultDict[str, int] = defaultdict(int)
+        keep: List[DigestItem] = []
+        deferred: List[DigestItem] = []
+        for item in merged:
+            if len(keep) >= cap:
+                deferred.append(item)
+                continue
+            source = (item.source or "").strip().lower()
+            if used[source] >= share:
+                deferred.append(item)
+                continue
+            keep.append(item)
+            used[source] += 1
+
+        # Nothing from another source wanted the held-back slots -- give them
+        # back rather than publishing a short section.
+        backfill = cap - len(keep)
+        if backfill > 0:
+            order = {id(it): i for i, it in enumerate(merged)}
+            keep.extend(deferred[:backfill])
+            deferred = deferred[backfill:]
+            keep.sort(key=lambda it: order[id(it)])
+
+        return keep, deferred
 
     def _freshness_score(self, published: datetime | None, run_dt: datetime) -> float:
         if not isinstance(published, datetime):
@@ -409,8 +455,7 @@ class DeterministicDigest:
             if self.per_section_cap:
                 cap = min(cap, self.per_section_cap)
             if len(merged) > cap:
-                overflow = merged[cap:]
-                keep = merged[:cap]
+                keep, overflow = self._apply_section_cap(merged, cap)
                 for item in overflow:
                     # Preserve practical/performance content via overflow to Misc
                     if self._is_overflow_worthy(item):

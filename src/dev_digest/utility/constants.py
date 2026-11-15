@@ -4,6 +4,12 @@ MAX_STORIES_TOTAL = 50  # safety cap across feeds
 
 # Selection and layout controls
 PER_SECTION_CAP = 8  # max items per section in the digest
+# No single source may hold more than this many of a section's capped slots
+# while other sources are still waiting. A verbose feed (AWS Security
+# Bulletins scores 40-53 on boilerplate alone) would otherwise evict an entire
+# category of signal -- Security came out 8/8 bulletins on 2026-10-26 and 7/8
+# on 2026-11-09, dropping every real-world incident both times.
+PER_SOURCE_SECTION_SHARE = 5
 TOP_PICKS_COUNT = 2  # how many 'Interesting Reads' to feature at the top
 
 OUT_DIR = "out"
@@ -180,6 +186,49 @@ SECURITY_IMPACT_PATTERNS = [
     r"active exploitation",
     r"in the wild",
     r"actively exploited",
+]
+
+# Real-world incident vocabulary. Vendor bulletins all carry a "CVE-" token and
+# so always scored the security bonus, while a plain-English incident headline
+# ("Hackers steal $6.3 billion from Binance") carried none and scored ~8. These
+# terms let an incident earn the bonus on its own description. Verbs and
+# compound nouns only -- a bare "hack"/"leak" matches too much marketing copy.
+SECURITY_INCIDENT_TERMS = [
+    "backdoor",
+    "bootkit",
+    "botnet",
+    "breached",
+    "compromised",
+    "data breach",
+    "exfiltrat",
+    "exploited",
+    "hackers",
+    "hijacked",
+    "infected",
+    "malware",
+    "ransomware",
+    "rootkit",
+    "spyware",
+    "stole",
+    "stolen",
+    "supply chain attack",
+    "zero-day",
+    # Compounds, not bare nouns: "leak"/"flaw" alone match too much vendor
+    # copy, but these phrasings only appear on real incidents and severe bugs.
+    "leak exposes",
+    "leaked",
+    "code-execution flaw",
+    "remote code execution",
+    "privilege escalation",
+]
+
+# Magnitude in an incident headline. Scale is the clearest signal that an
+# incident matters to a reader, and it is exactly what plain-English headlines
+# lead with: "$6.3 billion", "1.3 million Android TV boxes", "41,000 workers".
+SECURITY_SCALE_PATTERNS = [
+    r"\$\s?\d[\d,.]*\s*(?:billion|million|bn|m\b)",
+    r"\b\d[\d,.]*\s*(?:billion|million|thousand)\b",
+    r"\b\d{1,3}(?:,\d{3})+\b",
 ]
 
 # Partner/program keywords that should downgrade AWS RA severity

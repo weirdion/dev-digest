@@ -66,13 +66,26 @@ Section caps and overflow
 - If a practical / engineering post exceeds the cap, it overflows to Misc
   rather than getting dropped.
 - **A flat cap over a mixed-source section silently drops the minority
-  source.** Two consecutive weeks, two different caps, same failure:
-  `aws_ra_cap` buried launch-grade RA items behind a noisy service family
-  (2026-10-18), then `PER_SECTION_CAP` cut *every* Ars Technica incident from
-  Security because 11 AWS bulletins filled the section (2026-10-26). **Query
-  `debug_ranking.json` for exclusions before accepting any capped section**,
-  not just the RA one. If this recurs a third time, the lever is per-source
-  diversity within a cap, not a bigger cap.
+  source.** Three weeks, three caps, same failure: `aws_ra_cap` buried
+  launch-grade RA items behind a noisy service family (2026-10-18),
+  `PER_SECTION_CAP` cut *every* Ars Technica incident from Security
+  (2026-10-26), and it did so again on 2026-11-09 (7/8 bulletins, 11 Ars
+  incidents excluded). **Query `debug_ranking.json` for exclusions before
+  accepting any capped section**, not just the RA one — this check is still
+  required every week.
+- **`PER_SOURCE_SECTION_SHARE` (5) now bounds one source inside a cap**
+  (2026-11-09, `constants.py` + `_apply_section_cap`). Items are still taken
+  in score order; one is deferred only when its source already holds 5 of the
+  8 slots AND another source is waiting. Unclaimed slots are backfilled, so a
+  section genuinely dominated by one source is unchanged. **It is a floor,
+  not a fix** — it prevents an 8/8 wipeout, it does not choose well.
+- **The cap was never the root cause — the scorer was** (2026-11-09).
+  Hand-curated keeps that week spanned 4.3-25.7 while the one real cut scored
+  25.7, tied highest: score and editorial value were uncorrelated for that
+  source. A diversity rule only picks the best of a mis-sorted list. The
+  scoring fix is under "Security section" below. **Round-robin-by-source was
+  backtested and rejected** — it admitted a 0.0-scoring Istio post and a
+  re:Invent attendee guide. Do not revive it.
 
 Cut on sight (recurring noise patterns)
 ----------------------------------------
@@ -168,6 +181,17 @@ Security section — incident-driven only
 ---------------------------------------
 - Items MUST have an incident marker (CVE, exploit, attack, malware, breach,
   patch). Operational how-tos default back to AWS & Cloud.
+- **Incident headlines now earn the security bonus on their own**
+  (2026-11-09, `SECURITY_INCIDENT_TERMS` + `SECURITY_SCALE_PATTERNS` +
+  `security_scale=8`). The +26 bonus previously required a literal
+  `cve-`/`security`/`0-day` token, which every bulletin title carries and a
+  plain-English headline ("Hackers steal $6.3 billion from Binance") does
+  not. The existing quantified-impact bonus was also nested inside that CVE
+  gate and unreachable for non-CVE items, so "actively exploited" earned
+  nothing on its own. Both are fixed. Effect: Binance 8.6 -> 25.4, UEFI
+  bootkit 17.1 -> 35.3, DHS leak 6.4 -> 30.2, vs bulletins at 41-53.
+  Incidents are now competitive, not guaranteed — **keep checking the
+  excluded Ars items by hand.**
 - **Never let AWS bulletins crowd out real-world incidents.** On 2026-10-26
   the generated section was 8/8 AWS bulletins and the cap excluded all 8 Ars
   Technica items, among them the eMudhra CA compromise, PHP2Shell active

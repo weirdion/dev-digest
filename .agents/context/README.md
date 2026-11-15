@@ -13,7 +13,7 @@ Files in this directory
 - `preferences-log.md` — chronological log of heuristic / editorial changes and
   hard-won learnings. Append-only.
 
-Current state (as of 2026-10-26)
+Current state (as of 2026-11-09)
 --------------------------------
 The system is stable and the weekly cadence is:
 
@@ -93,9 +93,21 @@ Recently verified (so a fresh session does not re-discover):
   a "Part 3" Real Python tutorial led the 2026-10-26 digest. Covered by
   `test_tutorial_never_takes_a_top_pick_slot`.
 - **Caps drop the minority source in a mixed-source section** — `aws_ra_cap`
-  on 2026-10-18, `PER_SECTION_CAP` on Security on 2026-10-26 (every Ars
-  Technica incident cut in favour of 11 AWS bulletins). Always check
-  `debug_ranking.json` exclusions before accepting a capped section.
+  on 2026-10-18, `PER_SECTION_CAP` on Security on 2026-10-26 and again on
+  2026-11-09 (every Ars Technica incident cut in favour of AWS bulletins all
+  three times). Always check `debug_ranking.json` exclusions before accepting
+  a capped section — still required weekly.
+- **Two mechanisms added 2026-11-09** after the cap failed a third time:
+  `PER_SOURCE_SECTION_SHARE = 5` bounds one source inside a section cap
+  (`_apply_section_cap`), and incident scoring
+  (`SECURITY_INCIDENT_TERMS`, `SECURITY_SCALE_PATTERNS`, `security_scale=8`)
+  lets a plain-English incident headline earn the security bonus without a
+  literal CVE token. The cap was a symptom; the scorer was the cause — see
+  `editorial.md` and the 2026-11-09 `preferences-log.md` entry. Round-robin-
+  by-source was backtested and **rejected**; do not revive it.
+- **Third consecutive clean runbook run** (2026-10-18, 2026-10-26,
+  2026-11-09) on all selectors including Step 7b. Still verify the Publish
+  dialog visually.
 - **Screenshots are now confined to the repo / `.playwright-mcp/`**
   (2026-10-18) — `browser_take_screenshot` rejects absolute paths outside
   those roots, so the 2026-10-11 repo-root leak can no longer happen that
