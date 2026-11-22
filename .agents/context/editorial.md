@@ -214,18 +214,60 @@ Security section — incident-driven only
 
 AWS Recent Announcements
 ------------------------
-- **The per-severity cap can bury the week's biggest launch.** On 2026-10-18
-  five AWS End User Messaging registration items filled Medium Impact while
-  Lambda Web Functions (a new Lambda function type), the Durable Execution Go
-  SDK and both Security Hub items were cut by `aws_ra_cap` — all scoring
-  higher. The cap is severity-scoped, so one noisy service family crowds out
-  real launches at the same severity. **Check `debug_ranking.json` for
-  `aws_ra_cap` / `aws_ra_section` exclusions before accepting the generated RA
-  section**, and rebuild it by hand when a launch-grade item was capped.
+- **FIXED 2026-11-22: the RA cap selected by date, not score.** For five weeks
+  this file blamed "one noisy service family" crowding out launches at the same
+  severity. That was wrong. `items.sort(key=published, reverse=True)` in
+  `DeterministicDigest.py` did double duty — choosing what survived the cap
+  *and* the render order — so the cap kept the N most **recent** items per
+  severity and discarded everything older regardless of score. Aurora MySQL
+  8.4.12 GA (39.7) was cut for an AWS Quick console refresh (27.9) published 22
+  hours later; the same inversion ran on 2026-10-18 (Lambda Durable Execution
+  Go SDK 41.8 cut for a FedRAMP scope note at 25.7), 2026-11-09, and 2026-11-15
+  (EKS Auto Mode security groups for Pods, 39.6, the highest-scoring cut item,
+  which the log misattributed to the severity classifier). Selection is now by
+  score; display is re-sorted by date afterwards. Covered by
+  `TestRecentAnnouncementCapSelectsOnScore`.
+- **This did not fix tie-breaking.** 43 of 92 RA items on 2026-11-22 scored
+  exactly 25.7. Within a tie block the order is still arbitrary, so the cap
+  still cannot choose well among same-scoring items — it merely no longer
+  evicts a high scorer for a low one. **Keep checking `aws_ra_cap` /
+  `aws_ra_section` exclusions every week**, and rebuild by hand when a
+  launch-grade item was capped.
+- **Raising the cap is not the fix** (evaluated 2026-11-22). The cap exists to
+  reduce fluff; a bigger cap admits more of the tie block, buying one keeper
+  per piece of noise. At ~100 RA items in a re:Invent week a cap generous
+  enough to stop burying launches would be most of the feed. Fix the ordering
+  and the classifier instead.
 - **Validate anything transcribed from diagnostics.** Rebuilding the RA
   section by hand on 2026-10-18 produced an invented URL, a truncated title
   and seven wrong dates. Cross-check every URL and date against
   `debug_ranking.json` before converting to HTML.
+- **Severity classifier defects fixed 2026-11-22** (all three had standing
+  mis-effects, found by reading the code rather than from the symptom):
+  - `AWS_REGION_TERMS` carries the bare token **`MO`** (Missouri) and was
+    substring-matched, so "auto **mo**de", "**mo**nitoring", "Dyna**mo**DB",
+    "**mo**del", "**mo**dernization" and "**mo**ves" all read as regional
+    announcements — 10 of that week's RA items forced to low on spelling
+    alone. Now word-boundary matched via `_matches_region_term`. The same
+    token gated `region_penalty`, which is 0 under `DETERMINISTIC_PROFILE`
+    but **16 under `AI_PROFILE`**, so `--ai` runs were docking 16 points from
+    33 of 265 items.
+  - `"now supports"` / `"adds support"` sat in `AWS_WHATS_NEW_LOW_SIGNAL`, but
+    that is AWS's house style for most launches, so "Lambda adds support for
+    Python 3.15" and "EKS Auto Mode now supports security groups for Pods"
+    were forced to low. The phrase now only counts as low-signal when nothing
+    else in the title carries weight.
+  - `"cloudformation"` matched the IaC rule before anything checked for a
+    quota, so "increases the default stacks per account quota to 300,000"
+    came out **high**. Quota bumps are now low, matched as `\bquotas?\b` so a
+    capability ceiling ("S3 Vectors raises the filterable metadata limit to
+    40 KB") stays medium.
+  Backtest: 6-18% of RA items reclassified per week across six stored weeks,
+  nearly all `low -> medium` for real launches. Mean score of published RA on
+  2026-11-22 rose 30.0 -> 36.0 at the same item count. **Caveat:** the
+  `strong_launch_terms` allow-list is a new keyword list and will drift — the
+  same hazard as the Real Python patterns, narrower only because AWS titles
+  are formulaic.
 - Classify by severity (Critical / High / Medium / Low) rather than cutting.
 - Limit pure-regional updates (new Local Zones, region expansions) — Low or cut.
 - Limit quota updates — Low.

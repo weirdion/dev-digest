@@ -13,7 +13,7 @@ Files in this directory
 - `preferences-log.md` — chronological log of heuristic / editorial changes and
   hard-won learnings. Append-only.
 
-Current state (as of 2026-11-09)
+Current state (as of 2026-11-22)
 --------------------------------
 The system is stable and the weekly cadence is:
 
@@ -105,9 +105,25 @@ Recently verified (so a fresh session does not re-discover):
   literal CVE token. The cap was a symptom; the scorer was the cause — see
   `editorial.md` and the 2026-11-09 `preferences-log.md` entry. Round-robin-
   by-source was backtested and **rejected**; do not revive it.
-- **Third consecutive clean runbook run** (2026-10-18, 2026-10-26,
-  2026-11-09) on all selectors including Step 7b. Still verify the Publish
-  dialog visually.
+- **Fifth consecutive clean runbook run** (2026-10-18 → 2026-11-22) on all
+  selectors including Step 7b. Still verify the Publish dialog visually.
+- **The RA cap selected by date, not score** — fixed 2026-11-22. A single
+  `sort(key=published)` in `DeterministicDigest.py` chose both what survived
+  the cap and the render order, so the cap kept the newest N per severity and
+  dropped everything older regardless of score (Aurora MySQL 8.4.12 GA at 39.7
+  cut for a 27.9 console refresh 22h newer). **Four weeks of log entries
+  blamed the severity classifier and "service-family flooding" instead** —
+  both wrong. Selection is now by score, display re-sorted by date.
+  Lesson: read the code path before writing the pattern narrative.
+- **`AWS_REGION_TERMS` contains the bare token `MO`** and was substring
+  matched, so any title containing "mo" (mode, monitoring, DynamoDB, model,
+  moves) was treated as a regional announcement — 10 RA items forced to low
+  severity on 2026-11-22, and a 16-point `region_penalty` applied in `--ai`
+  runs. Now word-boundary matched. **Check for other short tokens before
+  adding to that list.**
+- **Raising a cap is not how you reduce fluff** (2026-11-22) — 43 of 92 RA
+  items scored identically (25.7), so extra slots buy one keeper per piece of
+  noise. Fix ordering and classification instead.
 - **Screenshots are now confined to the repo / `.playwright-mcp/`**
   (2026-10-18) — `browser_take_screenshot` rejects absolute paths outside
   those roots, so the 2026-10-11 repo-root leak can no longer happen that
