@@ -208,10 +208,42 @@ browser_evaluate →
 `setValue` uses the native descriptor setter so React sees the change; a plain
 `input.value = ''` gets ignored.
 
-**TRUST the `clicked: N` return value.** Tags are saved server-side even if
-the chip UI doesn't fully re-render. DO NOT retry — the second batch triggers
-Substack's "Tag already set" alert flood which floods the dialog state and
-takes many `browser_handle_dialog` calls to drain.
+**Poll for each option instead of using a fixed wait** (2026-11-22). With the
+fixed 120ms `sleep` above, the loop clicked only **16 of 33**, and the 17
+misses were a *contiguous run* from the middle of the list onward — the
+dropdown gets slower as it goes. Replace the fixed wait with a poll:
+
+```
+      setValue(combo, t);
+      let opt = null;
+      for (let i = 0; i < 20; i++) {            // up to ~2s per tag
+        await sleep(100);
+        opt = [...document.querySelectorAll('[role="option"]')]
+          .find(o => o.textContent.trim() === t);
+        if (opt) break;
+      }
+```
+
+**TRUST the `clicked: N` return value** for tags that succeeded. Tags are
+saved server-side even if the chip UI doesn't fully re-render.
+
+**Never re-run the batch over tags that already succeeded** — that is what
+triggers Substack's "Tag already set" alert flood, which jams the dialog state
+and takes many `browser_handle_dialog` calls to drain. **Retrying only the
+tags reported `missing` is safe and is the correct recovery** (done
+2026-11-22: 18 missing, all 18 clicked on the retry, `missing: []`, 34/34
+rendered, no alert). Distinguish the two cases before deciding:
+
+```
+browser_evaluate →
+  () => {
+    const txt = document.querySelector('[role="dialog"]').innerText;
+    const all = [ ...the 34 tags... ];
+    return { absent: all.filter(t => !txt.includes(t)) };
+  }
+```
+If `absent` is empty the chips are merely not rendering — leave it alone. If
+`absent` lists tags, those genuinely did not register; retry just those.
 
 If the user wants to verify the chips, they can refresh the page and reopen
 the Publish dialog — all 34 chips will render correctly from server state.

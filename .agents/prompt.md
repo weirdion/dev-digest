@@ -19,6 +19,25 @@ Operating principles
   change looks like a plain bug fix rather than tuning: on 2026-10-26 a
   top-pick selection fix was committed and pushed unasked on exactly that
   reasoning. Finding a real bug is a reason to raise it, not to skip the user.
+- **Read the code path before naming a cause.** A recurring symptom is not a
+  diagnosis. Three times now a confident pattern narrative has been wrong and
+  a backtest caught it: round-robin-by-source (2026-11-09), per-service-family
+  bounding (2026-11-22), and the top-pick "scorer rewards announcement
+  language" story (2026-11-22). In the second case the real cause was a sort
+  key doing double duty — one line, invisible from the symptom, and it had
+  been misattributed in this repo's own notes for four weeks. Open the
+  function that produces the behaviour before writing down why it happens.
+- **Backtest a proposed fix against the stored weeks before shipping it, and
+  state the result even when it kills the proposal.** `out/<date>/
+  debug_ranking.json` goes back months. A fix that cannot be shown to work on
+  past data is a guess.
+- **A test that passes with its fix reverted is not a test.** Revert each new
+  fix and confirm the test fails. On 2026-11-22 the first RA-cap test passed
+  either way because its fixture never exceeded the cap.
+- **Not every confirmed problem is worth code.** Weigh the fix against the
+  manual cost it removes and the size of the evidence. 21 labelled examples
+  cannot support a classifier; a weekly manual step that takes two minutes may
+  beat a rule that drifts. Say so plainly rather than shipping something.
 - Editorial taste belongs in the README/context files, not in conversation memory.
   When the user steers a new preference, append it to `preferences-log.md`.
 

@@ -35,6 +35,34 @@ Top picks (Interesting Reads, 2 items)
   When a GitHub engineering post makes the cut, it goes first. They are
   consistently the strongest read of the week (CSS-in-JS migration, Issues
   performance work).
+- **Always check GitHub Blog and the CNCF deep-dives by hand — the scorer will
+  not surface them** (backtested 2026-11-22, six weeks). Both generated top picks
+  were replaced in 3 of 6 weeks and one in the other 3 — 9 hand promotions
+  out of 12 slots. Across 21 labelled picks, every item
+  hand-promoted scored below every item rejected: rejected 39.1-53.8
+  (mean 44.6), promoted 19.3-38.3 (mean 28.9), **81 of 81 pairs**. GitHub Blog
+  appeared 5 times in 6 weeks, scored 23.5-30.5, and the scorer chose it
+  **zero** times — its engineering posts score `heuristic = 6.0`, because a
+  title like "Rebuilding star history" carries no CVE token, GA verb or
+  performance keyword, while "Explore the Codex Security Plugin" earns 26.0
+  for the word "security". Freshness (30% of combined) then compounds it:
+  GitHub posts mid-week at 64-78 against a same-day vendor post at 100.
+  **No filter blocks these items — they are eligible and simply outranked**,
+  so the manual check is the whole defence.
+- **Do not try to fix this with a rule** (three approaches tested and rejected,
+  2026-11-22). A **source-tier prior** fails: 3 of 12 generated picks were
+  already tier-1 sources and two were rejected anyway, while two keepers came
+  from AWS blogs a tier would demote. **Announcement-shape detection** scores
+  11/21, worse than chance, cutting "Announcing AWS Lambda Web Functions" and
+  "AWS Continuum ... now generally available" (both keepers) while passing 7
+  of 9 rejects. **Quantified-outcome detection** scores 9/21 — only 2 of 12
+  keepers carry a number and so do 2 of 9 rejects. No token separates the
+  classes either; the strongest candidates are RSS footer boilerplate (`post`,
+  `blog`, `appeared`) and stopwords. On `heuristic_score` alone the bands
+  **overlap** (7 of 12 keepers sit at or above the lowest reject), so the clean
+  81/81 split is mostly freshness, not a scorer that rewards the wrong content.
+  With 21 labelled examples any rule fits noise — the same trap as the Real
+  Python regex list. **Two items a week is cheaper to curate than to model.**
 - **AVOID CNCF event promos** — `event_promo_filter` does not catch every
   shape. "Security Slam 2026 – Fall edition" scored into top picks on
   2026-09-27. Any 30-day virtual event / KCD / KubeCon promo is a cut.

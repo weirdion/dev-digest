@@ -124,6 +124,21 @@ Recently verified (so a fresh session does not re-discover):
 - **Raising a cap is not how you reduce fluff** (2026-11-22) — 43 of 92 RA
   items scored identically (25.7), so extra slots buy one keeper per piece of
   noise. Fix ordering and classification instead.
+- **Top-pick mis-ordering is real, measured, and deliberately NOT fixed in
+  code** (backtested 2026-11-22 over six weeks). Every hand-promoted pick
+  scored below every rejected one — 81 of 81 pairs — and GitHub Blog appeared
+  5 times in 6 weeks without the scorer ever choosing it. But three candidate
+  fixes were tested and all failed (source tier, announcement shape 11/21,
+  quantified outcome 9/21), no token separates the classes, and on
+  `heuristic_score` alone the bands overlap. 21 labelled examples cannot
+  support a classifier. **The weekly manual check of GitHub Blog and the CNCF
+  deep-dives is the fix** — see `editorial.md`. Do not re-propose a scoring
+  change here without new evidence.
+- **Substack tag loop needs polling, not a fixed wait** (2026-11-22) — the
+  documented 120ms sleep clicked 16 of 33 with the misses in a contiguous run.
+  Retrying only the `missing` tags is safe and is the correct recovery; only
+  re-adding tags that already succeeded triggers the alert flood. See
+  `publish.md` Step 7.
 - **Screenshots are now confined to the repo / `.playwright-mcp/`**
   (2026-10-18) — `browser_take_screenshot` rejects absolute paths outside
   those roots, so the 2026-10-11 repo-root leak can no longer happen that

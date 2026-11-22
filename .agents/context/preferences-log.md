@@ -703,8 +703,10 @@ is safe. Worth switching the runbook loop to polling.
   quota — "if there are 9 good ones, it's a no question inclusion." All 11
   pass on merit (8 AWS CVE advisories + 3 industry incidents). 6 further valid
   bulletins existed but repeated the same MCP-server/path-traversal shape.
-- **Both top picks replaced, fourth week running.** An OpenAI product-demo
-  page ("Watch a demo") led at 41.8 while GitHub's Agent Host Protocol
+- **Both top picks replaced** (also 2026-10-18 and 2026-11-09; the other
+  three weeks replaced one of two — see the backtest entry below, which
+  corrects the "fourth week running" phrasing used in earlier entries). An
+  OpenAI product-demo page ("Watch a demo") led at 41.8 while GitHub's Agent Host Protocol
   deep-dive sat 10th at 30.5. Used GitHub (standing GitHub-leads rule) and the
   CNCF OTel overhead talk. **The top-pick scorer mis-ordering is now a 3-week
   pattern and still unfixed** — raised, not shipped.
@@ -720,6 +722,71 @@ reached a top pick**. The host-level rule remains proposed-but-unshipped.
 Validation passed first try: 0 unknown URLs, 0 date mismatches, 0 title drift,
 0 duplicates across all 68 bullets. HTML verified identical to source
 (h2 8 / h3 4 / li 68 / ul 11), paste verified identical in the editor.
+
+2026-11-22 (same day, follow-up) — Top-pick backtest: problem confirmed, every fix rejected
+-------------------------------------------------------------------------------------------
+Asked whether to take on the top-pick mis-ordering next. Agreed to **backtest
+before proposing**, explicitly because two prior fix proposals had already
+been wrong this month. The backtest confirmed the problem and then killed
+three candidate fixes, including the one I had suggested.
+
+**Method**: labelled all 21 top-pick decisions across the six stored weeks
+(2026-10-11 → 2026-11-22) as KEEP (what shipped) or REJECT (generated, then
+replaced by hand), joined to `debug_ranking.json`.
+
+**The problem is real and large.**
+- Both generated picks were replaced in **3 of 6 weeks**, one in each of the
+  other three: **9 hand promotions across 12 slots**.
+- **81 of 81 pairs**: every hand-promoted item scored below every rejected
+  one. Rejected 39.1-53.8 (mean 44.6); promoted 19.3-38.3 (mean 28.9). The
+  bands do not overlap on `combined_score`.
+- **GitHub Blog appeared 5 times in 6 weeks, scored 23.5-30.5, and the scorer
+  chose it zero times.** Its engineering posts score `heuristic = 6.0` —
+  "Rebuilding star history" has no CVE token, GA verb or performance keyword,
+  while "Explore the Codex Security Plugin" earns 26.0 for "security".
+- **No filter is responsible.** Checked every hand-pick against
+  `is_release_like`, the tutorial keywords, the event keywords and the
+  release-notes guard: all were eligible and simply outranked. Unlike the RA
+  cap bug found earlier today, this really is ranking, not a sort key.
+
+**Three fixes tested, all rejected:**
+1. **Source-tier prior** (the one I proposed). Fails: 3 of 12 generated picks
+   were *already* tier-1 sources and I rejected two of them (`kpt v1.0.0 is
+   released`, a CNCF policy post), while two keepers came from AWS Compute
+   Blog and AWS News Blog, which a tier would demote. The distinction is
+   within-source, not between sources.
+2. **Announcement-shape detection**: **11/21, worse than chance.** Wrong in
+   both directions — would cut "Announcing AWS Lambda Web Functions" and
+   "AWS Continuum ... is now generally available" (both keepers) and pass 7
+   of the 9 rejects.
+3. **Quantified-outcome detection** over title+summary: **9/21.** Only 2 of 12
+   keepers carry a number, and so do 2 of 9 rejects. Summaries were available
+   for all 21, so this was not a data gap.
+
+Also checked for *any* separating token: the strongest candidates are `post`,
+`blog`, `appeared` — RSS footer boilerplate from GitHub's feed — then
+stopwords (`from`, `with`, `your`). Nothing real.
+
+**A correction to my own framing.** I had told the user the scorer
+"systematically rewards announcement language". On `heuristic_score` alone the
+bands **overlap** — 7 of 12 keepers sit at or above the lowest reject — so the
+clean 81/81 split comes mostly from **freshness (30% of combined)**, not from
+content signal. GitHub posts mid-week (64-78 freshness) against same-day
+vendor posts (100). The content scorer is weak and near-random here, not
+systematically inverted. I over-read two vivid examples.
+
+**Decision: do not fix in code.** Three reasons: no feature separates the
+classes; 21 labelled examples cannot support a classifier without fitting
+noise (the same trap as the Real Python regex list, which has drifted five
+weeks running); and the prize is 2 items a week. The durable output is an
+`editorial.md` rule making the manual GitHub/CNCF check explicit and
+load-bearing, plus a note not to re-propose a scoring change here without new
+evidence.
+
+**Ways of working updated** (`prompt.md`) with the four lessons from today:
+read the code path before naming a cause; backtest before shipping and report
+the result even when it kills the proposal; a test that passes with its fix
+reverted is not a test; not every confirmed problem is worth code.
 
 How to add a new entry
 ----------------------
