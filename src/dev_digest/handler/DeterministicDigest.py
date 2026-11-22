@@ -507,7 +507,18 @@ class DeterministicDigest:
             items = [item for item, sev in aws_recent_announcements if sev == severity]
             if not items:
                 continue
-            items.sort(key=lambda x: self._ts(x.published), reverse=True)
+            # Select on score, render on date. These are different jobs and a
+            # single date sort conflated them: the cap kept the N most RECENT
+            # items at each severity and discarded everything older regardless
+            # of score, so Aurora MySQL 8.4.12 GA (39.7) was cut for an AWS
+            # Quick console refresh (27.9) published 22 hours later. The same
+            # inversion ran for four straight weeks -- 2026-10-18 (Lambda
+            # Durable Execution Go SDK 41.8 cut for a FedRAMP scope note 25.7),
+            # 2026-11-09, and 2026-11-15 (EKS Auto Mode security groups for
+            # Pods 39.6 cut for an AgentCore OAuth item 25.7) -- and was
+            # misattributed in the log to the severity classifier and to
+            # service-family flooding. Neither was the cause.
+            items.sort(key=lambda x: (-x.combined_score, -self._ts(x.published)))
             cap = self.ra_section_caps.get(severity)
             if cap is not None and cap >= 0:
                 trimmed = items[cap:]
@@ -540,6 +551,8 @@ class DeterministicDigest:
                         )
                 items = items[:cap]
             if items:
+                # Restore reverse-chronological order for display.
+                items.sort(key=lambda x: self._ts(x.published), reverse=True)
                 selected_ra[severity] = items
 
         def is_release_like(title_l: str) -> bool:

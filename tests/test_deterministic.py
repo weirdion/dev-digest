@@ -4,9 +4,12 @@ from pathlib import Path
 import json
 import re
 
+import pytest
+
 from dev_digest.handler.DeterministicDigest import DeterministicDigest
 from dev_digest.model import DigestCandidate, FeedEntry
 from dev_digest.utility.scoring import (
+    _matches_region_term,
     classify_recent_announcement,
     get_profile,
     infer_category,
@@ -605,3 +608,174 @@ class TestSecurityIncidentScoring:
         """A number alone must not buy the bonus -- plenty of marketing copy has one."""
         plain = self._score("Our platform now serves 1.3 million customers")
         assert plain == 0, plain
+
+
+class TestRegionTermWordBoundary:
+    """Region tokens must match as words, not substrings (2026-11-22).
+
+    `AWS_REGION_TERMS` carries the bare token "MO" (Missouri). A substring
+    test found it inside ordinary words, so "auto mode", "monitoring",
+    "DynamoDB", "model", "modernization" and "moves" all read as regional
+    announcements. On 2026-11-22 that forced 10 of the week's RA items to low
+    severity on their spelling alone. It also gated `region_penalty`, which is
+    0 under DETERMINISTIC_PROFILE but 16 under AI_PROFILE, so `--ai` runs
+    docked 16 points from 33 of that week's 265 items.
+    """
+
+    @pytest.mark.parametrize("title", [
+        "Amazon EKS Auto Mode now supports security groups for Pods",
+        "Amazon CloudWatch EKS Container Insights now offers built-in monitoring",
+        "Amazon DynamoDB vector search now supports new inline filter operators",
+        "AWS Transform announces UI component modernization for Windows web apps",
+        "Build more capable automations through chat with Flows",
+        "Amazon CloudFront simplifies domain moves and onboarding",
+        "Amazon SageMaker JumpStart now offers a model leaderboard",
+    ])
+    def test_ordinary_words_are_not_regions(self, title):
+        assert not _matches_region_term(title.lower()), title
+
+    @pytest.mark.parametrize("title", [
+        "Now available in us-east-1 and eu-west-2",
+        "Amazon Keyspaces is now available in the Asia Pacific (Tokyo) Region",
+        "Expansion to the Ohio Region",
+        "Amazon Connect launches in Kansas City",
+        "Service now available in Missouri",
+    ])
+    def test_real_regions_still_match(self, title):
+        assert _matches_region_term(title.lower()), title
+
+
+class TestRecentAnnouncementSeverity:
+    """Severity fixes for the misclassifications logged 2026-10-18 .. 2026-11-22."""
+
+    def _sev(self, title: str, summary: str = "") -> str:
+        return classify_recent_announcement(
+            DigestCandidate(
+                title=title,
+                link="https://aws.amazon.com/about-aws/whats-new/2026/11/x/",
+                published=datetime(2026, 11, 20, tzinfo=timezone.utc),
+                source="Recent Announcements",
+                summary=summary,
+                canonical_url="https://aws.amazon.com/about-aws/whats-new/2026/11/x/",
+            )
+        )
+
+    def test_runtime_support_is_not_low(self):
+        """"adds support" is AWS house style for launches, not a low-signal marker."""
+        assert self._sev("AWS Lambda adds support for Python 3.15") != "low"
+        assert self._sev("AWS Lambda adds support for Node.js 26") != "low"
+
+    def test_security_capability_is_not_low(self):
+        """The highest-scoring RA item cut on 2026-11-15 (39.6) was marked low."""
+        assert self._sev("Amazon EKS Auto Mode now supports security groups for Pods") == "high"
+
+    def test_quota_bump_is_not_high(self):
+        """"cloudformation" matched the IaC rule before anything saw "quota"."""
+        assert self._sev(
+            "AWS CloudFormation increases the default stacks per account quota to 300,000"
+        ) == "low"
+
+    def test_capability_ceiling_is_not_a_quota_bump(self):
+        """Raising what a feature can do is a launch; raising an account limit is not."""
+        assert self._sev(
+            "Amazon S3 Vectors raises the filterable metadata limit to 40 KB per vector"
+        ) == "medium"
+
+    def test_local_zone_is_low(self):
+        """AWS_REGION_TERMS misses "Local Zone", so GA_TERMS promoted it to medium."""
+        assert self._sev(
+            "Announcing the general availability of a new AWS Local Zone in Bogota, Colombia"
+        ) == "low"
+
+    @pytest.mark.parametrize("title", [
+        "AWS Quick now supports Japanese, German, Vietnamese, and Chinese",
+        "AWS Quick now supports plugins to bundle agents, skills, connectors and flows",
+        "Amazon RDS for Db2 now supports new Canadian time zones",
+        "Amazon RDS for Oracle now supports Primary Endpoint",
+        "Amazon Cognito extends multi-Region replication to additional AWS Regions",
+    ])
+    def test_feature_increments_stay_low(self, title):
+        """The launch-phrase carve-out must not promote ordinary increments."""
+        assert self._sev(title) == "low"
+
+    @pytest.mark.parametrize("title,expected", [
+        ("Amazon Aurora MySQL 8.4.12 is now generally available", "medium"),
+        ("Introducing Amazon EC2 T9g instances based on Graviton5", "low"),
+        ("AWS Network Firewall introduces automated Internet firewall in public preview", "high"),
+        ("CVE-2026-132607 - GCM authentication tag length downgrade", "critical"),
+    ])
+    def test_unchanged_classifications(self, title, expected):
+        assert self._sev(title) == expected
+
+
+class TestRecentAnnouncementCapSelectsOnScore:
+    """The RA cap must keep the best items, not merely the newest (2026-11-22).
+
+    `items.sort(key=published, reverse=True)` did double duty: it chose what
+    survived the cap AND the render order. So the cap kept the N most recent
+    items per severity and dropped everything older regardless of score --
+    Aurora MySQL 8.4.12 GA (39.7) was cut for an AWS Quick console refresh
+    (27.9) published 22 hours later. Four consecutive weeks showed the same
+    inversion and the log blamed the severity classifier instead.
+    """
+
+    def _ra_items(self):
+        base = datetime(2026, 11, 20, 12, 0, tzinfo=timezone.utc)
+        # Older but high-value, vs newer but trivial. Same severity band.
+        keepers = [
+            "Amazon Aurora MySQL 8.4.12 is now generally available",
+            "Amazon Aurora DSQL now delivers up to 50% higher write throughput",
+        ]
+        # Must exceed ra_section_caps["medium"] (6) so the cap actually bites;
+        # all of these classify medium, like the keepers.
+        filler = [
+            "Amazon Connect Customer expands how teams track service level agreements",
+            "AWS Pricing Calculator now estimates workload costs through a new API",
+            "Amazon EventBridge Scheduler adds 589 new API actions",
+            "Announcing Test Insights for AWS Device Farm",
+            "Amazon Connect launches Resolutions for high-volume operational work",
+            "AWS Transform combines migration assessment and planning in one experience",
+            "Amazon Textract Core announces a new skill for AI agents",
+            "Amazon CloudFront adds IP based routing to SaaS Manager",
+        ]
+        items = []
+        for i, t in enumerate(keepers):
+            items.append(FeedEntry(
+                title=t,
+                link=f"https://aws.amazon.com/about-aws/whats-new/2026/11/keep-{i}/",
+                published=base - timedelta(days=2),
+                source="Recent Announcements",
+                summary="Generally available with a measured performance improvement.",
+            ))
+        for i, t in enumerate(filler):
+            items.append(FeedEntry(
+                title=t,
+                link=f"https://aws.amazon.com/about-aws/whats-new/2026/11/filler-{i}/",
+                published=base + timedelta(hours=i),
+                source="Recent Announcements",
+                summary="Now available in the console.",
+            ))
+        return items
+
+    def test_high_value_older_item_survives_the_cap(self, tmp_path):
+        det = DeterministicDigest()
+        _md, diag = det.generate(self._ra_items(), _mk_run_dir(tmp_path))
+        included = {d.title for d in diag if d.included}
+        assert "Amazon Aurora MySQL 8.4.12 is now generally available" in included, \
+            "the week's GA launch was evicted by newer, lower-scoring items"
+
+    def test_render_order_stays_reverse_chronological(self, tmp_path):
+        """Selection moved to score; display must still read newest-first.
+
+        Order holds within a severity heading, not across them -- each `###`
+        block restarts at its own newest item.
+        """
+        det = DeterministicDigest()
+        md, _diag = det.generate(self._ra_items(), _mk_run_dir(tmp_path))
+        blocks = re.findall(
+            r"^### .*?Impact\n((?:- \d{4}-\d{2}-\d{2} —.*\n)+)", md, re.M
+        )
+        assert blocks, "no RA severity blocks rendered"
+        for block in blocks:
+            dates = re.findall(r"^- (\d{4}-\d{2}-\d{2}) —", block, re.M)
+            assert dates == sorted(dates, reverse=True), dates

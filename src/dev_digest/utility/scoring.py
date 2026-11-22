@@ -291,7 +291,7 @@ def compute_heuristic_score(candidate: DigestCandidate, config: HeuristicConfig)
     if is_recent_announcement and config.ra_low_signal_penalty:
         if any(term in title_lower for term in AWS_WHATS_NEW_LOW_SIGNAL):
             score -= config.ra_low_signal_penalty
-    if config.region_penalty and any(term.lower() in title_lower for term in AWS_REGION_TERMS):
+    if config.region_penalty and _matches_region_term(title_lower):
         score -= config.region_penalty
     if is_recent_announcement and config.tls_penalty:
         if any(term in title_lower for term in NEG_TLS_TERMS):
@@ -316,6 +316,28 @@ __all__ = [
     "score_candidate",
     "classify_recent_announcement",
 ]
+
+
+_REGION_TERM_PATTERN = re.compile(
+    r"(?<![0-9a-z])(?:" + "|".join(re.escape(t.lower()) for t in AWS_REGION_TERMS) + r")(?![0-9a-z])"
+)
+
+
+def _matches_region_term(title_lower: str) -> bool:
+    """Word-boundary match for AWS_REGION_TERMS.
+
+    A plain substring test treated the bare region token "MO" (Missouri) as a
+    hit inside ordinary words, so "auto mode", "monitoring", "DynamoDB",
+    "model", "modernization" and "moves" all read as regional announcements.
+    On 2026-11-22 that forced 10 RA items to low severity on their spelling
+    alone -- including EKS Container Insights (34.9). The same token also gated
+    `region_penalty` in the scorer: harmless under DETERMINISTIC_PROFILE, which
+    sets it to 0, but AI_PROFILE sets it to 16, so `--ai` runs were docking 16
+    points from every "mode" / "monitoring" / "DynamoDB" / "model" title -- 33
+    of 265 items on 2026-11-22. Hyphenated region ids such as "us-east-1" still
+    match: the guards exclude alphanumerics, not hyphens.
+    """
+    return bool(_REGION_TERM_PATTERN.search(title_lower))
 
 
 def classify_recent_announcement(candidate: DigestCandidate) -> str:
@@ -362,9 +384,41 @@ def classify_recent_announcement(candidate: DigestCandidate) -> str:
     if "vulnerability" in summary_lower or "zero-day" in title_lower:
         return "critical"
 
-    if any(term in title_lower for term in AWS_WHATS_NEW_LOW_SIGNAL):
+    # Quota bumps are low even when the service is an IaC one. Checked before
+    # the keyword tiers below, where "cloudformation" otherwise lifted
+    # "increases the default stacks per account quota to 300,000" to high
+    # (2026-11-22). Deliberately narrow: raising a *capability* ceiling is not
+    # a quota bump, so "S3 Vectors raises the filterable metadata limit to
+    # 40 KB" must stay medium. "limits" already sits in
+    # AWS_WHATS_NEW_LOW_SIGNAL, so it is not repeated here.
+    if re.search(r"\bquotas?\b", title_lower):
         return "low"
-    if any(term.lower() in title_lower for term in AWS_REGION_TERMS):
+
+    # Regional-only expansions are low per the editorial rule. AWS_REGION_TERMS
+    # misses the "Local Zone" / "Wavelength Zone" phrasing, and GA_TERMS then
+    # promoted "general availability of a new AWS Local Zone in Bogota" to
+    # medium (2026-11-22).
+    if any(term in title_lower for term in ("local zone", "local zones", "wavelength zone")):
+        return "low"
+
+    # "now supports" / "adds support" is AWS's house style for most launches,
+    # not a low-signal marker, so matching it here forced real launches to low:
+    # "AWS Lambda adds support for Python 3.15" and "Amazon EKS Auto Mode now
+    # supports security groups for Pods" (39.6, the highest-scoring RA item cut
+    # on 2026-11-15) both landed there. Only treat the phrase as low-signal
+    # when nothing else in the title carries weight.
+    launch_phrase_terms = ("now supports", "adds support", "is available", "available in")
+    strong_launch_terms = (
+        "python", "node.js", "nodejs", "java", "graviton", "security group",
+        "kubernetes", "eks", "opentelemetry", "otel", "tracing", "encryption",
+        "kms", "iam", "vpc", "tls", "mtls", "deprecat", "end of support",
+    )
+    low_signal_hits = [t for t in AWS_WHATS_NEW_LOW_SIGNAL if t in title_lower]
+    if low_signal_hits:
+        only_launch_phrasing = all(t in launch_phrase_terms for t in low_signal_hits)
+        if not (only_launch_phrasing and any(t in title_lower for t in strong_launch_terms)):
+            return "low"
+    if _matches_region_term(title_lower):
         return "low"
     if any(term in title_lower for term in instance_low_terms):
         return "low"
