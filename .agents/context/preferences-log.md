@@ -616,6 +616,111 @@ Other notes:
   vendor content or routed to a real section. Kubernetes/Containers grew
   3 → 6.
 
+2026-11-22 — The RA cap sorted by date, not score (four weeks misdiagnosed)
+----------------------------------------------------------------------------
+re:Invent pre-week: 265 items in (100 of them RA, vs ~45 typical), 68 bullets
+published across 8 sections. Runbook clean on every selector except the tag
+loop (see below) — fifth consecutive run.
+
+**The finding that invalidates four weeks of entries in this log.** The RA
+capping loop ran `items.sort(key=published, reverse=True)` and then sliced at
+the cap. That single sort decided both *what survived* and *the render order*,
+so the cap kept the N most **recent** items per severity and discarded
+everything older regardless of score. Aurora MySQL 8.4.12 GA (39.7) was cut
+for an AWS Quick console refresh (27.9) published 22 hours later.
+
+Checked against every stored week — the same inversion each time:
+- 2026-10-18: Lambda Durable Execution Go SDK **41.8** cut, Braket FedRAMP
+  scope note **25.7** published.
+- 2026-11-09: AWS Interconnect preview **37.5** cut, FSx Lustre **21.4** in.
+- 2026-11-15: EKS Auto Mode security groups for Pods **39.6** cut, AgentCore
+  OAuth **25.7** in. **The 2026-11-15 entry in this file blamed the severity
+  classifier for that cut. It was wrong — the item was simply two days older.**
+`editorial.md` likewise blamed "one noisy service family crowding out launches
+at the same severity" since 2026-10-18. Also wrong.
+
+**I proposed the wrong fix first.** Asked whether raising the cap was the
+answer, I argued no (correctly) but then proposed a per-service-family share
+bound — which would not have rescued a single one of the items above. The
+backtest caught it. **Second time a backtest has overturned my proposed fix**
+(round-robin, 2026-11-09). Lesson, now mirrored into `README.md`: read the
+code path before writing the pattern narrative.
+
+Shipped (`f119880`), after the user asked for a self-review and a
+devil's-advocate pass:
+1. **Selection by score, display re-sorted by date afterwards.**
+2. **`AWS_REGION_TERMS` word-boundary matching.** The list carries the bare
+   token **`MO`** (Missouri), substring-matched, so "auto **mo**de",
+   "**mo**nitoring", "Dyna**mo**DB", "**mo**del", "**mo**dernization" and
+   "**mo**ves" all read as regional announcements — **10 of this week's RA
+   items forced to low on spelling alone.** The same token gated
+   `region_penalty`: 0 under `DETERMINISTIC_PROFILE`, but **16 under
+   `AI_PROFILE`**, so `--ai` runs were docking 16 points from 33 of 265 items.
+   Found only by tracing why EKS Auto Mode still classified low after fix 3.
+3. **`"now supports"` / `"adds support"` no longer forces low** when the title
+   carries real weight (Python 3.15, security groups, OpenTelemetry).
+4. **Quota bumps → low**, matched `\bquotas?\b` so a capability ceiling
+   ("S3 Vectors raises the filterable metadata limit to 40 KB") stays medium.
+5. **Local Zone → low** (`AWS_REGION_TERMS` missed that phrasing).
+
+Effect: same 15 RA items generated, **mean score 30.0 → 36.0**. Aurora GA, IAM
+Roles Anywhere aliases, Lambda cost recommendations, MSK Kafka 4.2 and Secrets
+Store CSI AssumeRole all publish unaided. It also cut 3 of 4 AWS Quick items
+by itself, matching the user's manual call. Backtest across six weeks: 6-18%
+of RA items reclassified, nearly all `low -> medium` for real launches. Two
+`critical ->` downgrades were both corrections (items were critical only
+because the word "vulnerability" appeared in the summary).
+
+Tests 38 → 66. **My first RA-cap test passed with the fix reverted** — the
+fixture had 6 medium items against a medium cap of 6, so nothing was ever cut
+and the test could not bite. Widened to 10. Every new test is now confirmed to
+fail without its fix.
+
+**Known limitations, stated rather than buried:**
+- **Tie-breaking is untouched.** 43 of 92 RA items scored exactly 25.7; within
+  a tie block the order is still arbitrary. This stops a high scorer being
+  evicted by a low one — it does not choose well among equals.
+- `strong_launch_terms` is a new keyword list and will drift, the same hazard
+  `editorial.md` records for the Real Python patterns.
+- A simulated 6-item December week published all 6 with 0 cap exclusions, so
+  thin weeks are safe, but that is a synthetic check, not a real run.
+
+**New Substack symptom: the tag loop degraded partway.** The documented
+120ms fixed wait clicked only 16 of 33, with the 17 misses a contiguous run
+from "Cloud Engineering" onward. Dialog text confirmed the first 16 *were*
+set, so this is not the old "chips don't render" symptom. Retrying only the
+missing 18 with a poll (up to 2s per option) instead of a fixed wait got all
+18, `missing: []`, 34/34 rendered. **This does not violate the never-retry
+rule** — that rule guards against re-adding tags that already succeeded, which
+is what triggers the "Tag already set" alert flood. Retrying only the misses
+is safe. Worth switching the runbook loop to polling.
+
+**Editorial decisions this run** (user approved at the Phase 2 gate):
+- **AWS Quick**: 8 items this week (I first miscounted as 9 from duplicate
+  diagnostics rows). Kept enterprise guardrails (44.7) and plugins; cut the
+  other six as feature-increment noise.
+- **Security ran to 11.** The user's rule: the cap is a fluff filter, not a
+  quota — "if there are 9 good ones, it's a no question inclusion." All 11
+  pass on merit (8 AWS CVE advisories + 3 industry incidents). 6 further valid
+  bulletins existed but repeated the same MCP-server/path-traversal shape.
+- **Both top picks replaced, fourth week running.** An OpenAI product-demo
+  page ("Watch a demo") led at 41.8 while GitHub's Agent Host Protocol
+  deep-dive sat 10th at 30.5. Used GitHub (standing GitHub-leads rule) and the
+  CNCF OTel overhead talk. **The top-pick scorer mis-ordering is now a 3-week
+  pattern and still unfixed** — raised, not shipped.
+- Kubernetes/Containers 2 → 7; Misc eliminated (second week running); ML & AI
+  8 → 5.
+- Hand-wrote blurbs for both DeepMind items (Gemini 4 Neon, Genie 4) — empty
+  descriptions again, same pattern as 2026-11-15.
+
+**Real Python**: classifier recall recovered to 11/16 (from 4/19), all five
+"Draws a Python Reading a Book" posts caught automatically, and **no RP item
+reached a top pick**. The host-level rule remains proposed-but-unshipped.
+
+Validation passed first try: 0 unknown URLs, 0 date mismatches, 0 title drift,
+0 duplicates across all 68 bullets. HTML verified identical to source
+(h2 8 / h3 4 / li 68 / ul 11), paste verified identical in the editor.
+
 How to add a new entry
 ----------------------
 - Date the entry (YYYY-MM-DD) and give it a short heading.
